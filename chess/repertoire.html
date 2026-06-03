@@ -136,14 +136,13 @@ function render() {
   const items = data.m.map((mv, i) => {
     const [san, uci, w, d, b, vwAfter, vbAfter] = mv;
     const total = w + d + b;
-    // Backed-up win% of the resulting position from hero's perspective.
-    // These values are computed in plan.py / export_web.py via the
-    // hero-max + opponent-popularity recursion and DO NOT sum to 1 between sides.
     const vAfter = heroWhite ? vwAfter : vbAfter;
     const wPct = w / total, dPct = d / total, bPct = b / total;
     return { san, uci, w, d, b, total, rec: i === choiceIdx,
              popPct: total / totalAll, wPct, dPct, bPct, vAfter };
   });
+  // Sort by backed-up value descending (winningest first); nulls sink to bottom.
+  items.sort((a, b) => (b.vAfter ?? -1) - (a.vAfter ?? -1));
   moves.innerHTML = items.map(it => `
     <div class="row ${it.rec ? 'recommended' : ''}" onclick="playMove('${it.san}')">
       <span class="san">${it.san}</span>
