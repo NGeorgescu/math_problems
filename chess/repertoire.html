@@ -141,8 +141,9 @@ function render() {
     return { san, uci, w, d, b, total, rec: i === choiceIdx,
              popPct: total / totalAll, wPct, dPct, bPct, vAfter };
   });
-  // Sort by backed-up value descending (winningest first); nulls sink to bottom.
-  items.sort((a, b) => (b.vAfter ?? -1) - (a.vAfter ?? -1));
+  // Hero's turn: sort by backed-up value (winningest first).
+  // Opponent's turn: keep popularity order (most likely to be played first).
+  if (isHero) items.sort((a, b) => (b.vAfter ?? -1) - (a.vAfter ?? -1));
   moves.innerHTML = items.map(it => `
     <div class="row ${it.rec ? 'recommended' : ''}" onclick="playMove('${it.san}')">
       <span class="san">${it.san}</span>
