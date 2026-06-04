@@ -138,7 +138,7 @@ function render() {
   info.innerHTML = `Position value (${heroWhite ? 'White' : 'Black'}'s perspective): <strong class="${vClass}">${vStr}</strong><br>` +
     (isHero ? `<em>${heroWhite ? 'White' : 'Black'} to move — recommended in green.</em>` :
               `<em>${turnWhite ? 'White' : 'Black'} to move — these are popular replies you may face.</em>`);
-  const totalAll = data.m.reduce((s, x) => s + x[2] + x[3] + x[4], 0);
+  const totalAll = data.m.reduce((s, x) => s + x[1] + x[2] + x[3], 0);
   const items = data.m.map((mv, i) => {
     const [san, w, d, b] = mv;
     const total = w + d + b;
