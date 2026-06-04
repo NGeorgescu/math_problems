@@ -125,7 +125,13 @@ function render() {
   const moves = document.getElementById('moves');
   const info = document.getElementById('header-info');
   if (!data) {
-    moves.innerHTML = '<div class="out-of-book">Out of book — no data for this position.</div>';
+    const lichessUrl = 'https://lichess.org/analysis/standard/' +
+                       encodeURIComponent(game.fen()) + '#explorer';
+    moves.innerHTML = `<div class="out-of-book">Out of book — no data for this position.
+      <br><br><a href="${lichessUrl}" target="_blank" rel="noopener"
+                  style="color:#6ab2d4;text-decoration:underline;">
+        Continue on Lichess opening explorer →
+      </a></div>`;
     info.innerHTML = '';
     return;
   }
