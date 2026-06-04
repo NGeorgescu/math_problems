@@ -140,11 +140,24 @@ function render() {
               `<em>${turnWhite ? 'White' : 'Black'} to move — these are popular replies you may face.</em>`);
   const totalAll = data.m.reduce((s, x) => s + x[2] + x[3] + x[4], 0);
   const items = data.m.map((mv, i) => {
-    const [san, uci, w, d, b, vwAfter, vbAfter] = mv;
+    const [san, w, d, b] = mv;
     const total = w + d + b;
-    const vAfter = heroWhite ? vwAfter : vbAfter;
+    // Compute vAfter by tentatively playing the move, looking up the resulting
+    // position in REP, then undoing. Falls back to empirical winPct if the
+    // resulting position isn't in the included set.
+    const mvObj = game.move(san);
+    let vAfter = null;
+    if (mvObj) {
+      const next = REP.positions[shortFen(game.fen())];
+      game.undo();
+      if (next) vAfter = heroWhite ? next.vw : next.vb;
+    }
+    if (vAfter == null) {
+      const decisive = w + b;
+      vAfter = decisive ? (heroWhite ? w : b) / decisive : null;
+    }
     const wPct = w / total, dPct = d / total, bPct = b / total;
-    return { san, uci, w, d, b, total, rec: i === choiceIdx,
+    return { san, w, d, b, total, rec: i === choiceIdx,
              popPct: total / totalAll, wPct, dPct, bPct, vAfter };
   });
   // Hero's turn: sort by backed-up value (winningest first).
