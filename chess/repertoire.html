@@ -125,8 +125,21 @@ function render() {
   const moves = document.getElementById('moves');
   const info = document.getElementById('header-info');
   if (!data) {
-    const lichessUrl = 'https://lichess.org/analysis/standard/' +
-                       encodeURIComponent(game.fen()) + '#explorer';
+    // Build PGN like "1.e4_e5_2.Nf3" — lichess accepts underscore-separated PGN.
+    // Fall back to FEN if there's no history yet.
+    let lichessUrl;
+    if (history.length === 0) {
+      lichessUrl = 'https://lichess.org/analysis/standard/' +
+                   encodeURIComponent(game.fen()) + '#explorer';
+    } else {
+      const pgnParts = [];
+      for (let i = 0; i < history.length; i++) {
+        if (i % 2 === 0) pgnParts.push((i/2 + 1) + '.' + history[i]);
+        else pgnParts.push(history[i]);
+      }
+      lichessUrl = 'https://lichess.org/analysis/pgn/' +
+                   encodeURIComponent(pgnParts.join('_')) + '#explorer';
+    }
     moves.innerHTML = `<div class="out-of-book">Out of book — no data for this position.
       <br><br><a href="${lichessUrl}" target="_blank" rel="noopener"
                   style="color:#6ab2d4;text-decoration:underline;">
