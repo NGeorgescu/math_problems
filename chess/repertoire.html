@@ -215,9 +215,15 @@ async function render() {
     return { san, w, d, b, total, rec: i === choiceIdx,
              popPct: total / totalAll, wPct, dPct, bPct, vAfter };
   });
-  // Hero's turn: sort by backed-up value (winningest first).
-  // Opponent's turn: keep popularity order (most likely to be played first).
-  if (isHero) items.sort((a, b) => (b.vAfter ?? -1) - (a.vAfter ?? -1));
+  // Hero's turn: sort by backed-up value (winningest first), but demote
+  // small-sample moves below all reliable-sample moves to avoid noise like
+  // 3/4 = 0.75 outranking a genuinely good move with thousands of games.
+  const MIN_SAMPLE = 50;
+  if (isHero) items.sort((a, b) => {
+    const aSmall = a.total < MIN_SAMPLE, bSmall = b.total < MIN_SAMPLE;
+    if (aSmall !== bSmall) return aSmall ? 1 : -1;
+    return (b.vAfter ?? -1) - (a.vAfter ?? -1);
+  });
   moves.innerHTML = items.map(it => `
     <div class="row ${it.rec ? 'recommended' : ''}" onclick="playMove('${it.san}')">
       <span class="san">${it.san}</span>
