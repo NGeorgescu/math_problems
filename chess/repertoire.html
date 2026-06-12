@@ -49,9 +49,29 @@ h1 { margin: 0 0 8px; font-size: 20px; font-weight: 500; }
 .header-info { font-size: 13px; color: #aaa; margin-bottom: 8px; }
 .header-info strong { color: #6ab26a; }
 .header-info strong.bad { color: #d46a6a; }
+.help-btn { background: #2a2a2a; color: #6ab2d4; border: 1px solid #444; border-radius: 50%; width: 22px; height: 22px; font-size: 13px; cursor: pointer; margin-left: 8px; vertical-align: middle; padding: 0; }
+.help-btn:hover { background: #333; }
+.modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+.modal-box { background: #1d1d1d; border: 1px solid #444; border-radius: 8px; max-width: 540px; padding: 24px 28px; color: #ddd; font-size: 14px; line-height: 1.55; }
+.modal-box h2 { margin: 0 0 12px 0; color: #6ab2d4; font-size: 18px; }
+.modal-box p { margin: 0 0 12px 0; }
+.modal-box strong { color: #6ab26a; }
+.modal-box .close { float: right; background: none; border: none; color: #888; font-size: 20px; cursor: pointer; padding: 0; margin: -8px -8px 0 0; }
+.modal-box .close:hover { color: #fff; }
 </style>
 </head>
 <body>
+<div id="help-modal" class="modal-bg">
+  <div class="modal-box">
+    <button class="close" onclick="document.getElementById('help-modal').style.display='none'">×</button>
+    <h2>What is this?</h2>
+    <p>An opening repertoire explorer built from Lichess game data. Pick a side ("Playing as: White/Black") — that's your <strong>hero</strong>.</p>
+    <p>On <strong>your turn</strong>, moves are ranked by backed-up value: the score you'd get if both sides played optimally from here down the tree. The green-highlighted move is the recommended best line.</p>
+    <p>On <strong>your opponent's turn</strong>, moves are shown in popularity order — what real players actually play, most common first. The position value reflects a popularity-weighted average over the opponent's top replies (the more popular the reply, the more it counts), because you have to be prepared for what people actually play, not just the engine-best move.</p>
+    <p>The 0.000–1.000 number is hero win-equivalent (draws count as 0.5). Moves with very small sample size (&lt;50 games) are demoted to the bottom — noise from tiny samples shouldn't outrank real evidence.</p>
+    <p>Click any move to play it. Out-of-book positions link to the Lichess opening explorer.</p>
+  </div>
+</div>
 <div class="wrap">
   <div>
     <div id="board"></div>
@@ -63,7 +83,9 @@ h1 { margin: 0 0 8px; font-size: 20px; font-weight: 500; }
     <div class="line" id="line-display"></div>
   </div>
   <div class="panel">
-    <h1>Repertoire Explorer</h1>
+    <h1>Repertoire Explorer
+      <button class="help-btn" onclick="document.getElementById('help-modal').style.display='flex'" title="What is this?">?</button>
+    </h1>
     <div class="meta" id="meta"></div>
     <div class="hero-toggle">
       <span style="font-size:13px;color:#888;margin-right:8px;">Playing as:</span>
