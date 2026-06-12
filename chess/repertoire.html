@@ -66,8 +66,9 @@ h1 { margin: 0 0 8px; font-size: 20px; font-weight: 500; }
     <button class="close" onclick="document.getElementById('help-modal').style.display='none'">×</button>
     <h2>What is this?</h2>
     <p>An opening repertoire explorer built from Lichess game data. Pick a side ("Playing as: White/Black") — that's your <strong>hero</strong>.</p>
-    <p>On <strong>your turn</strong>, moves are ranked by backed-up value: the score you'd get assuming <strong>you</strong> play optimally from here down the tree, while <strong>your opponent</strong> plays the popularity-weighted distribution of what real players actually play. The green-highlighted move is the recommended best line under that assumption.</p>
-    <p>On <strong>your opponent's turn</strong>, moves are shown in popularity order — what real players actually play, most common first. The position value reflects a popularity-weighted average over the opponent's top replies (the more popular the reply, the more it counts) — you need to be prepared for what they'll actually play, not just the engine-best move.</p>
+    <p>The values assume: <strong>you play optimally</strong> (you always pick the best response), and <strong>your opponent plays the most popular moves</strong> (weighted by how often each is played in real Lichess games).</p>
+    <p>On <strong>your turn</strong>, moves are ranked by the score that results from that assumption — the green-highlighted move is the recommended best line.</p>
+    <p>On <strong>your opponent's turn</strong>, moves are shown in popularity order — what real players actually play, most common first. You don't get to choose; you have to prepare for what they'll actually play.</p>
     <p>The 0.000–1.000 number is hero win-equivalent (draws count as 0.5). Moves with very small sample size (&lt;50 games) are demoted to the bottom — noise from tiny samples shouldn't outrank real evidence.</p>
     <p>Click any move to play it. Out-of-book positions link to the Lichess opening explorer.</p>
   </div>
