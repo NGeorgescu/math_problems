@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Hue Sense — the named-color quiz</title>
+<style>
+  :root{
+    --bg:#0e1014; --panel:#171a21; --ink:#eef1f6; --muted:#9aa3b2;
+    --line:#262b35; --accent:#7cc6ff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-text-size-adjust:100%}
+  .wrap{max-width:440px;margin:0 auto;padding:18px 16px 40px}
+  h1{font-size:22px;margin:.2em 0 .1em;letter-spacing:.2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 16px;line-height:1.5}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    padding:16px;margin-bottom:14px}
+  .row{display:flex;align-items:center;gap:12px}
+  .swatch{width:64px;height:64px;border-radius:12px;border:1px solid rgba(255,255,255,.18);
+    flex:0 0 auto;box-shadow:0 2px 10px rgba(0,0,0,.4)}
+  .name{font-size:24px;font-weight:700;line-height:1.1}
+  .prompt{color:var(--muted);font-size:13px;margin-top:3px}
+  .chip{display:inline-block;font-size:11px;color:var(--muted);
+    border:1px solid var(--line);border-radius:999px;padding:2px 9px;margin-top:6px}
+
+  .squareWrap{position:relative;margin:14px auto 6px;width:min(86vw,340px)}
+  .square{position:relative;width:100%;aspect-ratio:1/1;border-radius:12px;overflow:hidden;
+    border:1px solid var(--line);touch-action:none;cursor:crosshair}
+  canvas{display:block;width:100%;height:100%}
+  .marker{position:absolute;transform:translate(-50%,-50%);pointer-events:none}
+  .guess{width:18px;height:18px;border-radius:50%;border:3px solid #fff;
+    box-shadow:0 0 0 2px rgba(0,0,0,.6)}
+  .truth{width:24px;height:24px;border-radius:50%;border:3px solid #000;
+    box-shadow:0 0 0 3px #fff,0 0 0 5px rgba(0,0,0,.5)}
+  .conn{position:absolute;height:2px;background:rgba(255,255,255,.85);
+    transform-origin:0 50%;pointer-events:none;box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+
+  .axisX{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:6px;
+    width:min(86vw,340px);margin-left:auto;margin-right:auto}
+  .axisY{position:absolute;left:-9px;top:0;height:100%;display:flex;flex-direction:column;
+    justify-content:space-between;align-items:flex-start}
+  .axisY span{writing-mode:vertical-rl;transform:rotate(180deg);color:var(--muted);font-size:11px;
+    background:var(--bg);padding:2px 0}
+
+  button{appearance:none;border:0;border-radius:12px;padding:13px 18px;font-size:16px;font-weight:600;
+    background:var(--accent);color:#06243a;width:100%;margin-top:8px;cursor:pointer}
+  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  button:disabled{opacity:.4}
+
+  .reveal{margin-top:12px;display:none}
+  .score{font-size:30px;font-weight:800}
+  .scoreSub{color:var(--muted);font-size:13px}
+  .why{margin-top:10px;font-size:13px;color:var(--ink);line-height:1.5;
+    border-left:3px solid var(--accent);padding-left:10px}
+  .hud{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-bottom:10px}
+  .hud b{color:var(--ink)}
+  .center{text-align:center}
+  .final{font-size:40px;font-weight:800;margin:6px 0}
+  .hidden{display:none}
+  .small{font-size:12px;color:var(--muted);line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- START -->
+  <section id="start">
+    <h1>Hue Sense</h1>
+    <p class="sub">A quiz for the colors whose <i>names</i> you know but whose <i>coordinates</i> you don't —
+    vermilion, chartreuse, cerulean. Each round locks the one axis the name gives away (azure is
+    <i>obviously</i> blue) and asks you to place the other two on the square.</p>
+    <div class="card small">
+      Tap where you think the color sits. The third HSB axis is fixed for you — baked into the gradient.
+      You'll be scored by how close you land, then shown the true spot.
+    </div>
+    <button onclick="game.start()">Start — 8 colors</button>
+  </section>
+
+  <!-- PLAY -->
+  <section id="play" class="hidden">
+    <div class="hud"><span>Round <b id="qnum">1</b>/<b id="qtot">8</b></span>
+      <span>Score <b id="runscore">0</b></span></div>
+
+    <div class="card">
+      <div class="row">
+        <div class="swatch" id="swatch"></div>
+        <div>
+          <div class="name" id="cname">—</div>
+          <div class="prompt" id="cprompt">place it on the square</div>
+          <div class="chip" id="clock">—</div>
+        </div>
+      </div>
+
+      <div class="squareWrap">
+        <div class="axisY"><span id="ayTop">top</span><span id="ayBot">bottom</span></div>
+        <div class="square" id="square">
+          <canvas id="cv" width="340" height="340"></canvas>
+          <div class="marker guess hidden" id="mGuess"></div>
+          <div class="marker truth hidden" id="mTruth"></div>
+          <div class="conn hidden" id="conn"></div>
+        </div>
+      </div>
+      <div class="axisX"><span id="axL">left</span><span id="axR">right</span></div>
+
+      <div class="reveal" id="reveal">
+        <div class="score" id="scoreBig">+0</div>
+        <div class="scoreSub" id="scoreSub"></div>
+        <div class="why" id="why"></div>
+      </div>
+
+      <button id="lockBtn" onclick="game.commit()" disabled>Lock in guess</button>
+      <button id="nextBtn" class="ghost hidden" onclick="game.next()">Next color →</button>
+    </div>
+  </section>
+
+  <!-- END -->
+  <section id="end" class="hidden center">
+    <h1>Done</h1>
+    <div class="final" id="finalScore">0</div>
+    <div class="scoreSub" id="finalSub">out of 800</div>
+    <button onclick="game.start()">Play again</button>
+    <button class="ghost" onclick="game.toStart()">Back to start</button>
+  </section>
+
+</div>
+
+<script>
+"use strict";
+
+/* ---------- color math ---------- */
+// HSV in H[0,360] S[0,100] V[0,100] -> [r,g,b] 0..255
+function hsv2rgb(h, s, v){
+  s/=100; v/=100;
+  const c = v*s, x = c*(1 - Math.abs(((h/60)%2)-1)), m = v-c;
+  let r=0,g=0,b=0;
+  if(h<60){r=c;g=x;} else if(h<120){r=x;g=c;}
+  else if(h<180){g=c;b=x;} else if(h<240){g=x;b=c;}
+  else if(h<300){r=x;b=c;} else {r=c;b=x;}
+  return [Math.round((r+m)*255),Math.round((g+m)*255),Math.round((b+m)*255)];
+}
+function hex2rgb(hex){
+  const n=parseInt(hex.slice(1),16);
+  return [(n>>16)&255,(n>>8)&255,n&255];
+}
+function rgb2hsv(r,g,b){
+  r/=255;g/=255;b/=255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+  let h=0;
+  if(d){
+    if(mx===r) h=((g-b)/d)%6;
+    else if(mx===g) h=(b-r)/d+2;
+    else h=(r-g)/d+4;
+    h*=60; if(h<0)h+=360;
+  }
+  const s=mx===0?0:d/mx;
+  return [h, s*100, mx*100];
+}
+
+/* ---------- the colors ----------
+   lock: which HSB axis the name pins down (held constant, baked into the gradient).
+   The two free axes become the square: x then y, in H,S,B order minus the locked one.
+   hex values sourced from Wikipedia's List of colors. */
+const COLORS = [
+  {n:"Azure",      hex:"#007FFF", lock:"H", why:"Azure is unmistakably blue — the hue is settled. The real question is how deep and how vivid it gets."},
+  {n:"Chartreuse", hex:"#7FFF00", lock:"S", why:"Chartreuse is always near-maximum saturation; what people miss is the exact yellow-green hue and how bright it sits."},
+  {n:"Vermilion",  hex:"#E34234", lock:"B", why:"Vermilion is a bright pigment — brightness is a given. The catch is how far toward orange it leans and how pure it is."},
+  {n:"Cerulean",   hex:"#007BA7", lock:"H", why:"A fixed sky-ocean blue. The trap is that it's more muted and darker than people expect."},
+  {n:"Magenta",    hex:"#FF00FF", lock:"B", why:"Magenta is full-bright by definition — only its hue and saturation are in question."},
+  {n:"Teal",       hex:"#008080", lock:"S", why:"Teal holds a steady saturation; the variables are whether it leans blue or green and how dark it is."},
+  {n:"Ochre",      hex:"#CC7722", lock:"H", why:"An earthy orange-brown hue is locked in. What defines ochre is how muted and how dark it is."},
+  {n:"Mauve",      hex:"#E0B0FF", lock:"H", why:"Mauve is a purple — but a pale, washed-out one. The point is how desaturated and how light it is."},
+  {n:"Crimson",    hex:"#DC143C", lock:"H", why:"Crimson is red; the character comes from how deep (dark) and how rich it is."},
+  {n:"Coral",      hex:"#FF7F50", lock:"B", why:"Coral glows bright — brightness is a given. Place its pink-orange hue and its saturation."},
+  {n:"Turquoise",  hex:"#40E0D0", lock:"B", why:"Turquoise is gem-bright. The puzzle is whether it's bluer or greener, and how vivid."},
+  {n:"Amber",      hex:"#FFBF00", lock:"B", why:"Amber is luminous — brightness fixed. How far toward orange, and how pure?"},
+  {n:"Periwinkle", hex:"#CCCCFF", lock:"H", why:"A soft blue-violet. The defining traits are how soft (low saturation) and how light it is."},
+  {n:"Maroon",     hex:"#800000", lock:"H", why:"Maroon is red — the whole identity is how dark it is."},
+  {n:"Olive",      hex:"#808000", lock:"H", why:"Olive is a yellow-green hue, but dark and muted — that darkness and muting is the point."},
+  {n:"Lavender",   hex:"#E6E6FA", lock:"H", why:"Lavender is a pale violet — almost all about how desaturated and how light it lands."},
+  {n:"Scarlet",    hex:"#FF2400", lock:"B", why:"Scarlet is a bright fiery red — place its hue (slightly orange) and saturation."},
+  {n:"Burgundy",   hex:"#800020", lock:"H", why:"A wine red-purple; what matters is how dark and how rich."},
+  {n:"Emerald",    hex:"#50C878", lock:"H", why:"Green is a given — emerald is about how vivid and how light."},
+  {n:"Viridian",   hex:"#40826D", lock:"H", why:"A blue-green hue, but the surprise is how muted and how dark viridian really is."},
+  {n:"Saffron",    hex:"#F4C430", lock:"B", why:"A bright spice yellow — hue and saturation are the only variables."},
+  {n:"Tangerine",  hex:"#F28500", lock:"B", why:"A bright orange — how red-vs-yellow, and how pure?"},
+  {n:"Ultramarine",hex:"#3F00FF", lock:"H", why:"A deep blue-violet hue — its identity is in how saturated and how dark it is."},
+];
+
+/* axis layout from lock: remaining of [H,S,B] -> [xAxis, yAxis] */
+const RANGE = {H:[0,360], S:[0,100], B:[0,100]};
+function axesFor(lock){
+  const order = ["H","S","B"].filter(a=>a!==lock);
+  return {x:order[0], y:order[1]};
+}
+const AXLABEL = {
+  H:{l:"← redder · hue · bluer →", t:"hue", b:"hue"},
+  S:{l:"← muted        saturated →", t:"saturated", b:"muted / gray"},
+  B:{l:"← dark            bright →", t:"bright", b:"dark"},
+};
+
+/* build an HSB triple from x/y fractions (y already top=1) plus locked truth */
+function makeHSV(color, fx, fy){
+  const t = rgb2hsv(...hex2rgb(color.hex));   // [H,S,B] truth
+  const truth = {H:t[0], S:t[1], B:t[2]};
+  const ax = axesFor(color.lock);
+  const out = Object.assign({}, truth);       // locked axis stays at truth
+  out[ax.x] = RANGE[ax.x][0] + fx*(RANGE[ax.x][1]-RANGE[ax.x][0]);
+  out[ax.y] = RANGE[ax.y][0] + fy*(RANGE[ax.y][1]-RANGE[ax.y][0]);
+  return out;
+}
+
+/* ---------- game ---------- */
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d");
+
+const game = {
+  deck:[], i:0, total:8, score:0, cur:null, committed:false, guessFrac:null, truthFrac:null,
+
+  toStart(){ show("start"); },
+  start(){
+    this.deck = shuffle(COLORS.slice()).slice(0, this.total);
+    this.i=0; this.score=0;
+    $("qtot").textContent=this.total; $("runscore").textContent=0;
+    show("play"); this.load();
+  },
+  load(){
+    this.committed=false; this.guessFrac=null;
+    const c = this.deck[this.i]; this.cur=c;
+    const ax = axesFor(c.lock);
+    $("qnum").textContent=this.i+1;
+    $("swatch").style.background=c.hex;
+    $("cname").textContent=c.n;
+    $("clock").textContent = ({H:"Hue",S:"Saturation",B:"Brightness"}[c.lock]) + " is fixed — guess the other two";
+    $("cprompt").textContent = `place its ${full(ax.x)} & ${full(ax.y)}`;
+    $("axL").textContent = AXLABEL[ax.x].l;
+    $("axR").textContent = "";
+    $("ayTop").textContent = AXLABEL[ax.y].t;
+    $("ayBot").textContent = AXLABEL[ax.y].b;
+    // truth fraction for scoring/reveal
+    const t = rgb2hsv(...hex2rgb(c.hex)); const truth={H:t[0],S:t[1],B:t[2]};
+    this.truthFrac = {
+      x:(truth[ax.x]-RANGE[ax.x][0])/(RANGE[ax.x][1]-RANGE[ax.x][0]),
+      y:(truth[ax.y]-RANGE[ax.y][0])/(RANGE[ax.y][1]-RANGE[ax.y][0]),
+    };
+    drawSquare(c);
+    // reset UI
+    $("mGuess").classList.add("hidden"); $("mTruth").classList.add("hidden"); $("conn").classList.add("hidden");
+    $("reveal").style.display="none";
+    $("lockBtn").classList.remove("hidden"); $("lockBtn").disabled=true;
+    $("nextBtn").classList.add("hidden");
+  },
+  place(fx,fy){
+    if(this.committed) return;
+    this.guessFrac={x:fx,y:fy};
+    const g=$("mGuess"); g.classList.remove("hidden");
+    g.style.left=(fx*100)+"%"; g.style.top=((1-fy)*100)+"%";
+    $("lockBtn").disabled=false;
+  },
+  commit(){
+    if(!this.guessFrac||this.committed) return;
+    this.committed=true;
+    const tf=this.truthFrac, gf=this.guessFrac;
+    const d=Math.hypot(tf.x-gf.x, tf.y-gf.y);
+    const pts=Math.max(0, Math.round(100*(1 - d/Math.SQRT2)));
+    this.score+=pts; $("runscore").textContent=this.score;
+
+    // truth marker + connector
+    const t=$("mTruth"); t.classList.remove("hidden");
+    t.style.left=(tf.x*100)+"%"; t.style.top=((1-tf.y)*100)+"%";
+    drawConnector(gf, tf);
+
+    $("scoreBig").textContent="+"+pts;
+    $("scoreSub").textContent = pts>=90?"Pinpoint.":pts>=70?"Close.":pts>=45?"In the neighborhood.":"Way off — now you know.";
+    $("why").textContent=this.cur.why;
+    $("reveal").style.display="block";
+    $("lockBtn").classList.add("hidden");
+    $("nextBtn").classList.remove("hidden");
+    $("nextBtn").textContent = (this.i+1>=this.total) ? "See results →" : "Next color →";
+  },
+  next(){
+    this.i++;
+    if(this.i>=this.total){ this.finish(); return; }
+    this.load();
+  },
+  finish(){
+    show("end");
+    $("finalScore").textContent=this.score;
+    $("finalSub").textContent="out of "+(this.total*100);
+  }
+};
+
+function full(a){return {H:"hue",S:"saturation",B:"brightness"}[a];}
+function show(id){ for(const s of ["start","play","end"]) $(s).classList.add("hidden"); $(id).classList.remove("hidden"); }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+
+function drawSquare(c){
+  const W=cv.width, H=cv.height;
+  const img=ctx.createImageData(W,H);
+  const data=img.data;
+  for(let py=0; py<H; py++){
+    const fy = 1 - py/(H-1);
+    for(let px=0; px<W; px++){
+      const fx = px/(W-1);
+      const hsv = makeHSV(c, fx, fy);
+      const [r,g,b]=hsv2rgb(hsv.H,hsv.S,hsv.B);
+      const o=(py*W+px)*4;
+      data[o]=r; data[o+1]=g; data[o+2]=b; data[o+3]=255;
+    }
+  }
+  ctx.putImageData(img,0,0);
+}
+
+function drawConnector(gf,tf){
+  const sq=$("square"); const w=sq.clientWidth, h=sq.clientHeight;
+  const x1=gf.x*w, y1=(1-gf.y)*h, x2=tf.x*w, y2=(1-tf.y)*h;
+  const dx=x2-x1, dy=y2-y1, len=Math.hypot(dx,dy), ang=Math.atan2(dy,dx);
+  const conn=$("conn"); conn.classList.remove("hidden");
+  conn.style.left=x1+"px"; conn.style.top=y1+"px";
+  conn.style.width=len+"px";
+  conn.style.transform=`rotate(${ang}rad)`;
+}
+
+/* input */
+const sq=$("square");
+function handle(ev){
+  const r=sq.getBoundingClientRect();
+  const cx=(ev.touches?ev.touches[0].clientX:ev.clientX);
+  const cy=(ev.touches?ev.touches[0].clientY:ev.clientY);
+  let fx=(cx-r.left)/r.width, fy=1-(cy-r.top)/r.height;
+  fx=Math.min(1,Math.max(0,fx)); fy=Math.min(1,Math.max(0,fy));
+  game.place(fx,fy);
+}
+sq.addEventListener("pointerdown", e=>{e.preventDefault();handle(e);});
+sq.addEventListener("pointermove", e=>{ if(e.buttons){e.preventDefault();handle(e);} });
+</script>
+</body>
+</html>
