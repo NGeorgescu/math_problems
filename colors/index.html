@@ -287,7 +287,7 @@ const COLORS = [
   {n:"Olivine",hex:"#9AB973"},      {n:"Orchid",hex:"#DA70D6"},        {n:"Oxblood",hex:"#4A0000"},
   {n:"Persimmon",hex:"#EC5800"},    {n:"Phlox",hex:"#DF00FF"},         {n:"Pine",hex:"#01796F"},
   {n:"Pistachio",hex:"#93C572"},    {n:"Plum",hex:"#8E4585"},          {n:"Puce",hex:"#CC8899"},
-  {n:"Pumpkin",hex:"#FF7518"},      {n:"Raspberry",hex:"#E30B5D"},     {n:"Razzmatazz",hex:"#E3256B"},
+  {n:"Pumpkin",hex:"#FF7518"},      {n:"Raspberry",hex:"#E30B5D"},
   {n:"Rose madder",hex:"#E32636"},  {n:"Rosewood",hex:"#65000B"},      {n:"Rufous",hex:"#A81C07"},
   {n:"Russet",hex:"#80461B"},       {n:"Rust",hex:"#B7410E"},          {n:"Salmon",hex:"#FA8072"},
   {n:"Sapphire",hex:"#0F52BA"},     {n:"Sepia",hex:"#704214"},         {n:"Shamrock",hex:"#009E60"},
@@ -296,11 +296,15 @@ const COLORS = [
   {n:"Terracotta",hex:"#E2725B"},   {n:"Thistle",hex:"#D8BFD8"},       {n:"Tiffany blue",hex:"#0ABAB5"},
   {n:"Tomato",hex:"#FF6347"},       {n:"Tyrian purple",hex:"#66023C"}, {n:"Umber",hex:"#635147"},
   {n:"Verdigris",hex:"#43B3AE"},    {n:"Venetian red",hex:"#C80815"},  {n:"Veronica",hex:"#A020F0"},
-  {n:"Wine",hex:"#722F37"},         {n:"Wisteria",hex:"#C9A0DC"},      {n:"Xanadu",hex:"#738678"},
-  {n:"Zaffre",hex:"#0014A8"},       {n:"Zomp",hex:"#39A78E"},
+  {n:"Wine",hex:"#722F37"},         {n:"Wisteria",hex:"#C9A0DC"},      {n:"Zaffre",hex:"#0014A8"},
   /* duplicate-hue synonyms are intentional — same swatch, different name to recall */
   {n:"Fuchsia",hex:"#FF00FF"},      {n:"Aqua",hex:"#00FFFF"},
   {n:"Cinnabar",hex:"#E34234"},     {n:"Paris green",hex:"#50C878"},
+  /* more traditional one-word names: pigments, dyes, places, archaic terms */
+  {n:"Indigo",hex:"#4B0082"},       {n:"Minium",hex:"#FF4203"},        {n:"Falu red",hex:"#801818"},
+  {n:"Isabelline",hex:"#F4F0EC"},   {n:"Wenge",hex:"#645452"},         {n:"Tenné",hex:"#CD5700"},
+  {n:"Xanthous",hex:"#F1B42F"},     {n:"Feldgrau",hex:"#4D5D53"},      {n:"Liver",hex:"#674C47"},
+  {n:"Ecru",hex:"#C2B280"},         {n:"Kobicha",hex:"#6B4423"},       {n:"Damask",hex:"#E5989B"},
 ];
 
 /* derive lock axis + rationale for any color that wasn't hand-curated:
@@ -407,7 +411,6 @@ const BLURBS = {
 "Puce":"French for flea — the brownish color of a flea",
 "Pumpkin":"named after the orange pumpkin",
 "Raspberry":"named after the raspberry fruit",
-"Razzmatazz":"a 1993 Crayola color named by a 5-year-old in a naming contest",
 "Rose madder":"a red from madder lake, a pigment from the madder plant (Rubia tinctorum)",
 "Rosewood":"named after rosewood timber, whose rose-like scent names the wood",
 "Rufous":"from Latin 'rufus', meaning red",
@@ -433,12 +436,23 @@ const BLURBS = {
 "Venetian red":"an iron-oxide pigment tied to Venice through Renaissance painting and trade",
 "Wine":"named after the dark red color of red wine",
 "Wisteria":"named after the wisteria vine and its light-violet flowers",
-"Xanadu":"a grey named after the plant Philodendron xanadu",
 "Zaffre":"from Italian 'zaffera', via Latin 'sapphirus'; a deep-blue cobalt pigment",
 "Fuchsia":"named after the fuchsia flower, itself named for botanist Leonhart Fuchs",
 "Aqua":"from Latin 'aqua', water; a variation of cyan",
 "Cinnabar":"from Greek 'kinnabari'; the scarlet mineral form of mercury sulfide",
 "Paris green":"named for its use killing rats in Parisian sewers (though invented in Germany)",
+"Indigo":"from Latin 'indicum', Indian — the blue dye reached Europe from India",
+"Minium":"red-lead pigment; named after the River Minius in Iberia, near Roman cinnabar mines",
+"Falu red":"Swedish iron-oxide paint, a byproduct of the Falun copper mine it's named for",
+"Isabelline":"a pale grey-yellow; likely from 'zibellino' (sable fur) — the queen's-unwashed-shift tale is a myth",
+"Wenge":"a dark brown named after the wood of Millettia laurentii, a Central African tree",
+"Tenné":"a heraldic orange-brown 'stain'; from Latin 'tannare', to tan leather",
+"Xanthous":"a golden yellow; from Ancient Greek 'xanthos', yellow or golden",
+"Feldgrau":"German for 'field-grey', the German army's uniform color until 1945",
+"Liver":"a brown named after the organ; used for dog and horse coats (recorded 1686)",
+"Ecru":"from French 'ecru', raw or unbleached — the color of unbleached linen",
+"Kobicha":"a traditional Japanese brown; the name means the color of kelp (kombu) tea",
+"Damask":"a pink-red named after the Damask rose and the patterned cloth of Damascus",
 };
 function wikiUrl(name){ return "https://en.wikipedia.org/w/index.php?title=Special:Search&go=Go&search="+encodeURIComponent(name); }
 
