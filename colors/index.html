@@ -84,6 +84,14 @@
   .optcell.right{box-shadow:0 0 0 4px #2fe06a}
   .optcell.wrong{box-shadow:0 0 0 4px #ff4d4d}
   .optcell.dim{opacity:.3}
+  .optname{background:#1f2430;color:var(--ink);font-weight:600;font-size:15px;padding:14px 8px;
+    border:1px solid var(--line);border-radius:12px;min-height:54px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;text-align:center;
+    transition:opacity .12s,box-shadow .12s}
+  .optname.right{box-shadow:0 0 0 3px #2fe06a;border-color:#2fe06a}
+  .optname.wrong{box-shadow:0 0 0 3px #ff4d4d;border-color:#ff4d4d}
+  .optname.dim{opacity:.4}
+  .bigswatch{width:100%;height:84px;border-radius:12px;border:1px solid rgba(255,255,255,.18);margin:8px 0}
   .cramFeedback{min-height:34px;font-size:13px;margin:6px 0 2px;text-align:center;color:var(--muted);line-height:1.4}
   .cramFeedback.ok{color:#2fe06a;font-weight:700}
   .cramFeedback.bad{color:#ff9a9a}
@@ -103,9 +111,11 @@
       You'll be scored by how close you land, then shown the true spot.
     </div>
     <button onclick="game.start()">Start — 8 colors</button>
-    <button class="alt" onclick="cram.start()">Cram mode — drill all the colors</button>
-    <p class="small" style="margin-top:8px">Cram is multiple-choice: see a name, tap the matching swatch from six.
-    Miss one and it comes back a few cards later — clear the whole deck and you know them all.</p>
+    <button class="alt" onclick="cram.start('match')">Match — name → color</button>
+    <button class="alt" onclick="cram.start('describe')">Describe — color → name</button>
+    <p class="small" style="margin-top:8px">Match &amp; Describe are flashcard drills (6-way multiple choice). Miss a card
+    and it returns a few cards later — clear the whole deck and you know them all. Same color-distance
+    rule keeps the six options visibly distinct.</p>
   </section>
 
   <!-- PLAY -->
@@ -155,10 +165,11 @@
 
   <!-- CRAM (multiple choice) -->
   <section id="cram" class="hidden">
-    <div class="hud"><span>Cram mode</span><span><b id="cramCount">0 / 0</b> learned</span></div>
+    <div class="hud"><span id="cramMode">Match</span><span><b id="cramCount">0 / 0</b> learned</span></div>
     <div class="progwrap"><div class="progbar" id="cramProg"></div></div>
     <div class="card">
-      <div class="small" style="text-align:center">tap the swatch that is</div>
+      <div class="small" id="cramInstr" style="text-align:center">tap the swatch that matches</div>
+      <div id="cramPromptSwatch" class="bigswatch hidden"></div>
       <div style="text-align:center;margin:4px 0 2px"><a class="name namelink" id="cramName" target="_blank" rel="noopener" style="display:inline-block">—</a></div>
       <div class="optgrid" id="cramGrid"></div>
       <div class="cramFeedback" id="cramFeedback"></div>
@@ -173,7 +184,7 @@
     <h1>Deck cleared 🎉</h1>
     <div class="final">all <span id="cramStat1">0</span> colors</div>
     <div class="scoreSub"><span id="cramStat2">0</span> cards seen · <span id="cramStat3">0</span> misses</div>
-    <button class="alt" onclick="cram.start()">Cram again</button>
+    <button class="alt" onclick="cram.again()">Drill again</button>
     <button class="ghost" onclick="cram.toStart()">Back to start</button>
   </section>
 
@@ -620,21 +631,24 @@ function buildCramOptions(answer){
 }
 
 const cram = {
-  queue:[], total:0, learned:0, attempts:0, lapses:0, cur:null, options:[], answered:false, advancing:false, advTimer:null,
+  dir:"match", queue:[], total:0, learned:0, attempts:0, lapses:0, cur:null, options:[], answered:false, advancing:false, advTimer:null,
 
   toStart(){ this.clearTimer(); show("start"); },
   quit(){
-    if(this.queue.length>0 && !confirm("Exit cram mode? You'll lose progress on the "+(this.total-this.learned)+" colors you haven't cleared yet.")) return;
+    if(this.queue.length>0 && !confirm("Exit? You'll lose progress on the "+(this.total-this.learned)+" colors you haven't cleared yet.")) return;
     this.clearTimer(); show("start");
   },
   clearTimer(){ if(this.advTimer){clearTimeout(this.advTimer); this.advTimer=null;} },
 
-  start(){
+  start(dir){
+    this.dir = dir || "match";              // 'match' = name→color, 'describe' = color→name
     this.queue = shuffle(COLORS.slice());
     this.total = this.queue.length;
     this.learned=0; this.attempts=0; this.lapses=0;
+    $("cramMode").textContent = this.dir==="describe" ? "Describe — color → name" : "Match — name → color";
     show("cram"); this.load();
   },
+  again(){ this.start(this.dir); },
   load(){
     this.clearTimer(); this.answered=false; this.advancing=false;
     if(this.queue.length===0){ this.finish(); return; }
@@ -643,15 +657,23 @@ const cram = {
     this.render();
   },
   render(){
-    $("cramName").textContent=this.cur.n;          // plain text until answered
+    const c=this.cur, describe=(this.dir==="describe");
+    $("cramInstr").textContent = describe ? "tap the name of this color" : "tap the swatch that matches";
+    if(describe){
+      $("cramPromptSwatch").classList.remove("hidden"); $("cramPromptSwatch").style.background=c.hex;
+      $("cramName").textContent="";                 // name hidden until answered (no spoiler)
+    }else{
+      $("cramPromptSwatch").classList.add("hidden");
+      $("cramName").textContent=c.n;
+    }
     $("cramName").removeAttribute("href"); $("cramName").classList.remove("namelink");
     $("cramCount").textContent=this.learned+" / "+this.total;
     $("cramProg").style.width=(100*this.learned/this.total)+"%";
     const grid=$("cramGrid"); grid.innerHTML="";
-    this.options.forEach((c,i)=>{
+    this.options.forEach((o,i)=>{
       const cell=document.createElement("button");
-      cell.className="optcell"; cell.style.background=c.hex;
-      cell.setAttribute("aria-label","color choice");
+      if(describe){ cell.className="optname"; cell.textContent=o.n; }
+      else { cell.className="optcell"; cell.style.background=o.hex; cell.setAttribute("aria-label","color choice"); }
       cell.onclick=()=>this.pick(i,cell);
       grid.appendChild(cell);
     });
@@ -665,8 +687,8 @@ const cram = {
     const chosen=this.options[i];
     const correct = (chosen.hex===this.cur.hex);
     const cells=$("cramGrid").children;
-    this.options.forEach((c,idx)=>{
-      if(c.hex===this.cur.hex) cells[idx].classList.add("right");
+    this.options.forEach((o,idx)=>{
+      if(o.hex===this.cur.hex) cells[idx].classList.add("right");
       else cells[idx].classList.add("dim");
     });
     if(!correct){ cell.classList.remove("dim"); cell.classList.add("wrong"); }
@@ -686,7 +708,9 @@ const cram = {
       fb.className="cramFeedback bad";
       $("cramBlurb").textContent=this.cur.blurb || "";
     }
-    $("cramName").href=wikiUrl(this.cur.n); $("cramName").classList.add("namelink");  // linkable after answering
+    // reveal the (now-safe) name as a Wikipedia link in both modes
+    $("cramName").textContent=this.cur.n;
+    $("cramName").href=wikiUrl(this.cur.n); $("cramName").classList.add("namelink");
     $("cramNext").classList.remove("hidden");
   },
   next(){
