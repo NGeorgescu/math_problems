@@ -839,18 +839,20 @@ const cram = {
 
 /* ---------- fine (discrimination ladder) ---------- */
 function rgbHex(r,g,b){ return "#"+[r,g,b].map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,"0")).join("").toUpperCase(); }
-// a color a perceptual distance ~targetDE (OKLab) from hex, or null if it can't hit the band
+// closest-to-targetDE (OKLab) perturbation of hex — always returns a valid, distinct color
+// (best-approximation so it works even for near-white/near-black bases at the gamut edge)
 function nearColor(hex, targetDE){
   const [r,g,b]=hex2rgb(hex), baseLab=rgb2oklab(r,g,b);
-  const lo=targetDE*0.7, hi=targetDE*1.4, scale=Math.max(2, Math.round(targetDE*240));
-  const ri=()=> Math.round((Math.random()*2-1)*scale);
-  for(let t=0;t<80;t++){
-    const nr=r+ri(), ng=g+ri(), nb=b+ri();
-    const cr=Math.max(0,Math.min(255,nr)), cg=Math.max(0,Math.min(255,ng)), cb=Math.max(0,Math.min(255,nb));
-    const de=oklabDist(rgb2oklab(cr,cg,cb), baseLab);
-    if(de>=lo && de<=hi) return rgbHex(cr,cg,cb);
+  const scale=Math.max(1.5, targetDE*260), C=v=>Math.max(0,Math.min(255,Math.round(v)));
+  const ri=()=>(Math.random()*2-1)*scale;
+  let best=null, bestErr=1e9;
+  for(let t=0;t<140;t++){
+    const cr=C(r+ri()), cg=C(g+ri()), cb=C(b+ri());
+    if(cr===r && cg===g && cb===b) continue;
+    const err=Math.abs(oklabDist(rgb2oklab(cr,cg,cb), baseLab) - targetDE);
+    if(err<bestErr){ bestErr=err; best=rgbHex(cr,cg,cb); }
   }
-  return null;
+  return best;
 }
 
 const FINE_DE0 = 0.06, FINE_FLOOR = 0.006;
@@ -866,13 +868,15 @@ const fine = {
   load(){
     this.answered=false; this.advancing=false; if(this.t){clearTimeout(this.t); this.t=null;}
     this.base = COLORS[Math.floor(Math.random()*COLORS.length)];
-    const de=this.curDE(), n=this.curN();
+    let de=this.curDE(); const n=this.curN();
+    const baseLab=rgb2oklab(...hex2rgb(this.base.hex));
     const opts=[{hex:this.base.hex, exact:true}], seen=new Set([this.base.hex.toUpperCase()]);
-    let guard=0;
-    while(opts.length<n && guard++<500){
-      const h=nearColor(this.base.hex, de);
-      if(h && !seen.has(h)){ seen.add(h); opts.push({hex:h, exact:false}); }
-    }
+    let guard=0, minDE=Infinity;
+    const add=h=>{ if(h && !seen.has(h)){ seen.add(h); opts.push({hex:h, exact:false});
+      minDE=Math.min(minDE, oklabDist(rgb2oklab(...hex2rgb(h)), baseLab)); return true; } return false; };
+    while(opts.length<n && guard++<800){ if(!add(nearColor(this.base.hex, de)) && guard%120===0) de*=1.4; }
+    while(opts.length<3 && guard++<1200){ de*=1.3; add(nearColor(this.base.hex, de)); }  // never fewer than 3 tiles
+    this.minDE = isFinite(minDE) ? minDE : de;
     this.options = shuffle(opts);
     this.render();
   },
@@ -901,7 +905,7 @@ const fine = {
       this.t=setTimeout(()=>this.next(), 700);
     }else{
       cell.classList.remove("dim"); cell.classList.add("wrong");
-      fb.textContent="✗ that was "+this.base.n+" — the framed tile (ΔE "+this.curDE().toFixed(3)+") was exact";
+      fb.textContent="✗ that was "+this.base.n+" — the framed tile was exact (closest was ΔE "+this.minDE.toFixed(3)+")";
       fb.className="cramFeedback bad";
       next.textContent="See result →"; next.onclick=()=>this.finish(); next.classList.remove("hidden");
     }
@@ -911,7 +915,7 @@ const fine = {
     if(this.t)clearTimeout(this.t);
     show("fineEnd");
     $("fineEndLevel").textContent=this.level;
-    $("fineEndSub").textContent="your eye resolved down to ΔE "+this.curDE().toFixed(3)+" (OKLab)";
+    $("fineEndSub").textContent="you got stuck around ΔE "+(this.minDE||this.curDE()).toFixed(3)+" (OKLab)";
   }
 };
 
