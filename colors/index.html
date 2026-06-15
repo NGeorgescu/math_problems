@@ -62,6 +62,10 @@
   .scoreSub{color:var(--muted);font-size:13px}
   .why{margin-top:10px;font-size:13px;color:var(--ink);line-height:1.5;
     border-left:3px solid var(--accent);padding-left:10px}
+  .blurb{margin-top:9px;font-size:12.5px;color:var(--muted);line-height:1.5;font-style:italic}
+  a.namelink{text-decoration:none;color:inherit;border-bottom:1px dotted rgba(255,255,255,.45)}
+  a.namelink:after{content:"\2197";font-size:.5em;vertical-align:super;opacity:.55;
+    font-style:normal;margin-left:2px}
   .hud{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-bottom:10px}
   .hud b{color:var(--ink)}
   .center{text-align:center}
@@ -116,7 +120,7 @@
           <div class="swcap">your pick</div>
         </div>
         <div>
-          <div class="name" id="cname">—</div>
+          <a class="name namelink" id="cname" target="_blank" rel="noopener">—</a>
           <div class="prompt" id="cprompt">slide to match the name</div>
           <div class="chip" id="clock">—</div>
         </div>
@@ -141,6 +145,7 @@
           <div><div class="mini" id="miniTrue"></div><div class="swcap">actual</div><div class="miniHex" id="hexTrue"></div></div>
         </div>
         <div class="why" id="why"></div>
+        <div class="blurb" id="etymo"></div>
       </div>
 
       <button id="lockBtn" onclick="game.commit()" disabled>Lock in guess</button>
@@ -154,9 +159,10 @@
     <div class="progwrap"><div class="progbar" id="cramProg"></div></div>
     <div class="card">
       <div class="small" style="text-align:center">tap the swatch that is</div>
-      <div class="name" id="cramName" style="text-align:center;margin:4px 0 2px">—</div>
+      <div style="text-align:center;margin:4px 0 2px"><a class="name namelink" id="cramName" target="_blank" rel="noopener" style="display:inline-block">—</a></div>
       <div class="optgrid" id="cramGrid"></div>
       <div class="cramFeedback" id="cramFeedback"></div>
+      <div class="blurb" id="cramBlurb" style="text-align:center"></div>
       <button id="cramNext" class="hidden" onclick="cram.next()">Next →</button>
     </div>
     <button class="ghost" onclick="cram.quit()">End cram</button>
@@ -311,10 +317,136 @@ const WHY_TMPL = {
   B:"It reads as bright, so brightness is a given. The quiz is its hue and how saturated it is.",
   H:"The name pins the hue; what's left is how saturated and how light or dark it really is.",
 };
+// name-origin blurbs, scraped from Wikipedia opening sentences (memory hooks).
+const BLURBS = {
+"Azure":"named after lapis lazuli, the vivid-blue gemstone; via Arabic 'lazaward' from Persian 'lazhward'",
+"Chartreuse":"named after green Chartreuse liqueur, made by Carthusian monks in the French Alps",
+"Vermilion":"from Latin 'vermiculus' (little worm), for the kermes insect once used to make red dye",
+"Cerulean":"from Latin 'caeruleus' (dark blue), probably from 'caelum', sky or heaven",
+"Magenta":"named after the 1859 Battle of Magenta in Italy; the new dye celebrated the victory",
+"Teal":"named after the Eurasian teal, a duck with a blue-green stripe on its head",
+"Ochre":"from Ancient Greek 'okhros' meaning pale, fitting the pigment's pale earthy tones",
+"Mauve":"named after the mallow flower (French 'mauve'), whose pale purple bloom it resembles",
+"Crimson":"from the kermes scale insect once used to make the dye; via Arabic 'qirmiz'",
+"Coral":"named after precious coral, the marine animals whose orange-red-pink skeletons it echoes",
+"Turquoise":"from Old French 'turquois' (Turkish), as the mineral reached Europe via Turkey",
+"Amber":"named after amber, fossilized tree resin found in yellow-orange-brown tones",
+"Periwinkle":"named after the periwinkle flower (Vinca), which shares this blue-violet color",
+"Maroon":"from French 'marron' (chestnut); the dark red-brown resembles the nut",
+"Olive":"named after unripe green olives, whose dark yellow-green it matches",
+"Lavender":"named after the lavender plant, taking its name from the flower's color",
+"Scarlet":"from Persian 'saqerlat' via Old French; originally a fine bright-red cloth",
+"Burgundy":"named after Burgundy wine from the Burgundy region of France",
+"Emerald":"named after the green emerald gemstone",
+"Viridian":"from Latin 'viridis' (green); a chromium-oxide pigment first made in 1800s Paris",
+"Saffron":"named after the saffron crocus, whose stigmas give the golden-orange spice",
+"Tangerine":"named after the tangerine, the orange citrus fruit",
+"Ultramarine":"from Latin 'ultramarinus', beyond the sea — lapis pigment shipped by sea from Afghanistan",
+"Amaranth":"named after the amaranth flower; Greek for 'unfading'",
+"Amethyst":"named after the violet quartz gem; Greek 'amethystos', not drunken",
+"Aquamarine":"named after the pale blue-green aquamarine gemstone; Latin for 'sea water'",
+"Apricot":"named after the apricot fruit; from Arabic 'al-birquq' via Greek and Latin",
+"Alizarin":"from the madder-root red dye; via French 'alizarine' from Arabic 'al-usara', the juice",
+"Aureolin":"from Latin 'aureolus', golden; a golden-yellow cobalt pigment from 1831",
+"Bistre":"a brown pigment made from soot, historically from burning beechwood",
+"Bole":"from Latin 'bolus' (clay); a soft reddish-brown clay pigment",
+"Bittersweet":"named for the bittersweet nightshade plant, whose bright red berries give the hue",
+"Brick":"named after the reddish color of a clay brick",
+"Bronze":"a metallic brown resembling the alloy bronze",
+"Byzantium":"a dark purple named after the Byzantine Empire",
+"Cardinal":"named after the scarlet cassocks worn by Catholic cardinals",
+"Carmine":"a red from cochineal insects; via French 'carmin' and Arabic 'qirmiz'",
+"Carnelian":"from Latin 'cornum', the cornel cherry, whose red fruit the gem resembles",
+"Celadon":"named after Celadon, a shepherd in d'Urfe's romance who wore pale green ribbons",
+"Cerise":"from the French 'cerise', meaning cherry",
+"Chestnut":"named after the color of the chestnut tree's nut",
+"Citrine":"named after the citron fruit; a yellow quartz gemstone",
+"Citron":"from Latin 'citrus'; the citron fruit gives this pale yellow-green its name",
+"Claret":"from French 'clairet', a dark rose wine once exported from Bordeaux",
+"Coffee":"a brown named after the roasted coffee bean",
+"Copper":"a reddish brown resembling the metal copper",
+"Coquelicot":"French for the wild corn poppy, bright red with an orange tint",
+"Cordovan":"from Cordoba, Spain, where cordovan leather was first made in the 7th century",
+"Cornflower":"named after the cornflower (Centaurea cyanus), whose blooms are this medium blue",
+"Cyclamen":"named after the cyclamen flower; Greek 'kyklos' (circle), for its round tuber",
+"Dandelion":"from French 'dent de lion' (lion's tooth); the yellow dandelion flower",
+"Denim":"from French 'serge de Nimes', the fabric first made in Nimes, France",
+"Eggplant":"named for the dark purple skin of the eggplant",
+"Fandango":"named after the lively Spanish fandango dance",
+"Fawn":"named for the coat of a fawn, a young deer",
+"Fern":"named after the green of fern foliage",
+"Firebrick":"named for fire brick, the heat-resistant brick lining furnaces and kilns",
+"Flame":"named for the color of flames; first used as a color name in 1590",
+"Fulvous":"from Latin 'fulvus', a tawny brownish-yellow used in animal names",
+"Gamboge":"from Latin 'Gambogia' (Cambodia), source of the yellow pigment resin",
+"Glaucous":"from Greek 'glaukos' (blue-grey); the pale waxy bloom on grapes and plums",
+"Goldenrod":"named after the deep-gold flowers of the goldenrod plant",
+"Heliotrope":"named for the pink-purple heliotrope flower; Greek 'turning to the sun'",
+"Jasmine":"named after the pale yellow-white jasmine flower",
+"Jonquil":"named after Narcissus jonquilla, a plant with fragrant yellow flowers",
+"Kelly green":"from Kelly, a common Irish surname; evokes lush Irish meadows",
+"Keppel":"named after Keppel Harbour, Singapore, for British naval captain Henry Keppel",
+"Lapis":"short for lapis lazuli, the deep-blue stone; Persian 'lazward'",
+"Lilac":"named after the light-purple lilac flower",
+"Mahogany":"named after the reddish-brown mahogany wood",
+"Malachite":"from Greek 'molochites' (mallow-green stone); the mineral resembles mallow leaves",
+"Marigold":"named after the marigold flower",
+"Mint":"named after the green mint plant",
+"Moss":"named after green moss",
+"Mulberry":"named after the dark color of mulberry fruit",
+"Mustard":"a dull yellow named after the mustard condiment",
+"Naples yellow":"named after Naples, Italy, once thought to be the pigment's source",
+"Olivine":"the mineral named for its olive-green color, from traces of nickel",
+"Orchid":"named after orchid flowers' purple petals; Greek 'orkhis', for the tubers' shape",
+"Oxblood":"named after ox blood, once used as a pigment to dye fabric and leather",
+"Persimmon":"named after the persimmon fruit; from Powhatan (Algonquian) 'putchamin'",
+"Phlox":"named after the phlox flower; Greek 'phlox', flame, for its intense blooms",
+"Pine":"named after the green needles of pine trees",
+"Pistachio":"a yellow-green named after the pistachio nut",
+"Plum":"named after the reddish-purple plum fruit",
+"Puce":"French for flea — the brownish color of a flea",
+"Pumpkin":"named after the orange pumpkin",
+"Raspberry":"named after the raspberry fruit",
+"Razzmatazz":"a 1993 Crayola color named by a 5-year-old in a naming contest",
+"Rose madder":"a red from madder lake, a pigment from the madder plant (Rubia tinctorum)",
+"Rosewood":"named after rosewood timber, whose rose-like scent names the wood",
+"Rufous":"from Latin 'rufus', meaning red",
+"Russet":"a coarse cloth dyed with woad and madder to a grey or reddish-brown",
+"Rust":"named after rust, the reddish oxidation of iron",
+"Salmon":"named after the pinkish color of salmon flesh",
+"Sapphire":"named after the sapphire gemstone, usually blue",
+"Sepia":"from the cuttlefish (genus Sepia), whose ink made brown drawing ink",
+"Shamrock":"named after the shamrock, the green symbol of Ireland",
+"Sienna":"from Italian 'terra di Siena', earth of Siena, an earth pigment",
+"Sinopia":"named after Sinop, the Turkish Black Sea port that exported the pigment",
+"Skobeloff":"named after Mikhail Skobelev, a 19th-century Russian general",
+"Straw":"named after straw, the pale yellow of dried stalks; Latin 'stramineus'",
+"Persian green":"named for the green of Persian pottery and the mineral malachite",
+"Taupe":"from French 'taupe', mole — the color of a mole's fur",
+"Terracotta":"from Italian for 'baked earth' (Latin 'terra cocta'), the fired reddish clay",
+"Thistle":"named after the thistle plant's light-purple flower",
+"Tiffany blue":"named after Tiffany & Co.; the robin-egg blue of its 1845 Blue Book",
+"Tomato":"named after the reddish-orange color of tomatoes",
+"Tyrian purple":"purple dye from sea snails, made in ancient Tyre (Phoenicia)",
+"Umber":"from Italian Umbria, or Latin 'umbra' (shadow); an earth pigment",
+"Verdigris":"from Old French 'verte grez'; green copper salts formed by vinegar",
+"Venetian red":"an iron-oxide pigment tied to Venice through Renaissance painting and trade",
+"Wine":"named after the dark red color of red wine",
+"Wisteria":"named after the wisteria vine and its light-violet flowers",
+"Xanadu":"a grey named after the plant Philodendron xanadu",
+"Zaffre":"from Italian 'zaffera', via Latin 'sapphirus'; a deep-blue cobalt pigment",
+"Fuchsia":"named after the fuchsia flower, itself named for botanist Leonhart Fuchs",
+"Aqua":"from Latin 'aqua', water; a variation of cyan",
+"Cinnabar":"from Greek 'kinnabari'; the scarlet mineral form of mercury sulfide",
+"Paris green":"named for its use killing rats in Parisian sewers (though invented in Germany)",
+};
+function wikiUrl(name){ return "https://en.wikipedia.org/w/index.php?title=Special:Search&go=Go&search="+encodeURIComponent(name); }
+
 function prep(c){
   const t=rgb2hsv(...hex2rgb(c.hex));
   if(!c.lock) c.lock=deriveLock(t[0],t[1],t[2]);
   if(!c.why)  c.why=WHY_TMPL[c.lock];
+  c.blurb = BLURBS[c.n] || "";
   return c;
 }
 COLORS.forEach(prep);
@@ -362,7 +494,7 @@ const game = {
     const ax = axesFor(c.lock);
     $("qnum").textContent=this.i+1;
     $("swatch").style.background="#000";   // your pick starts black, fills in as you slide
-    $("cname").textContent=c.n;
+    $("cname").textContent=c.n; $("cname").href=wikiUrl(c.n);
     $("clock").textContent = ({H:"Hue",S:"Saturation",B:"Brightness"}[c.lock]) + " is fixed — guess the other two";
     $("cprompt").textContent = `place its ${full(ax.x)} & ${full(ax.y)}`;
     $("axL").textContent = AXLABEL[ax.x].l;
@@ -419,6 +551,7 @@ const game = {
     $("hexPick").textContent=hexAt(this.cur,gf.x,gf.y);
     $("hexTrue").textContent=this.cur.hex.toUpperCase();
     $("why").textContent=this.cur.why;
+    $("etymo").textContent=this.cur.blurb || "";
     $("reveal").style.display="block";
     $("lockBtn").classList.add("hidden");
     $("nextBtn").classList.remove("hidden");
@@ -438,11 +571,13 @@ const game = {
       const [R,G,B]=hex2rgb(r.c.hex);
       // RGB relative luminance (not HSB brightness): pure blue is "bright" in HSB but reads dark
       const lum=(0.2126*R+0.7152*G+0.0722*B)/255;
-      const item=document.createElement("div");
+      const item=document.createElement("a");
       item.className="recapItem";
+      item.href=wikiUrl(r.c.n); item.target="_blank"; item.rel="noopener";
       item.style.background = r.c.hex;                 // the bar IS the color
       item.style.color = lum<0.5 ? "#fff" : "#000";    // white text on dark colors, black on light
-      item.innerHTML = `<span class="rn">${r.c.n}</span><span class="rp">${r.pts}</span>`;
+      item.style.textDecoration="none";
+      item.innerHTML = `<span class="rn">${r.c.n}</span><span class="rp">${r.pts} ↗</span>`;
       recap.appendChild(item);
     }
   }
@@ -495,7 +630,7 @@ const cram = {
     this.render();
   },
   render(){
-    $("cramName").textContent=this.cur.n;
+    $("cramName").textContent=this.cur.n; $("cramName").href=wikiUrl(this.cur.n);
     $("cramCount").textContent=this.learned+" / "+this.total;
     $("cramProg").style.width=(100*this.learned/this.total)+"%";
     const grid=$("cramGrid"); grid.innerHTML="";
@@ -507,6 +642,7 @@ const cram = {
       grid.appendChild(cell);
     });
     $("cramFeedback").textContent=""; $("cramFeedback").className="cramFeedback";
+    $("cramBlurb").textContent="";
     $("cramNext").classList.add("hidden");
   },
   pick(i,cell){
@@ -532,8 +668,9 @@ const cram = {
       this.lapses++;
       const gap=3+Math.floor(Math.random()*3);          // comes back a few cards later
       this.queue.splice(Math.min(gap,this.queue.length),0,this.cur);
-      fb.textContent="✗ you tapped "+chosen.n+" — "+this.cur.n+" is the bordered one. It'll come back.";
+      fb.textContent="✗ you tapped "+chosen.n+" — the answer was "+this.cur.n;
       fb.className="cramFeedback bad";
+      $("cramBlurb").textContent=this.cur.blurb || "";
     }
     $("cramNext").classList.remove("hidden");
   },
