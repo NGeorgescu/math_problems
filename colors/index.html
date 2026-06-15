@@ -452,7 +452,8 @@ function rgbAt(color,fx,fy){ const h=makeHSV(color,fx,fy); const [r,g,b]=hsv2rgb
 function hexAt(color,fx,fy){ const h=makeHSV(color,fx,fy); const [r,g,b]=hsv2rgb(h.H,h.S,h.B);
   return "#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("").toUpperCase(); }
 /* ---------- cram (Anki-style multiple choice) ---------- */
-const CRAM_MIN_DE = 0.10;   // min OKLab ΔE between any two swatches shown together
+const CRAM_MIN_DE = 0.15;   // min OKLab ΔE between any two swatches shown together
+                            // (0.10 let Firebrick/Rose madder ≈0.103 co-occur; 0.15 clears it with margin)
 function minLabDist(lab,labs){ let m=Infinity; for(const L of labs){const d=oklabDist(lab,L); if(d<m)m=d;} return m; }
 function buildCramOptions(answer){
   const aLab=rgb2oklab(...hex2rgb(answer.hex));
