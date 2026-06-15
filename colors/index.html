@@ -380,11 +380,12 @@ const game = {
     const recap=$("recap"); recap.innerHTML="";
     for(const r of this.results){
       const [R,G,B]=hex2rgb(r.c.hex);
-      const lum=(0.2126*R+0.7152*G+0.0722*B)/255;   // dark color -> light pill, and vice versa
+      // RGB relative luminance (not HSB brightness): pure blue is "bright" in HSB but reads dark
+      const lum=(0.2126*R+0.7152*G+0.0722*B)/255;
       const item=document.createElement("div");
       item.className="recapItem";
-      item.style.background = lum>0.55 ? "#13161c" : "#f1f1f4";
-      item.style.color = r.c.hex;
+      item.style.background = r.c.hex;                 // the bar IS the color
+      item.style.color = lum<0.5 ? "#fff" : "#000";    // white text on dark colors, black on light
       item.innerHTML = `<span class="rn">${r.c.n}</span><span class="rp">${r.pts}</span>`;
       recap.appendChild(item);
     }
