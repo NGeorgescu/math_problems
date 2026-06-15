@@ -67,6 +67,10 @@
   .final{font-size:40px;font-weight:800;margin:6px 0}
   .hidden{display:none}
   .small{font-size:12px;color:var(--muted);line-height:1.5}
+  .recap{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;text-align:left}
+  .recapItem{display:flex;justify-content:space-between;align-items:center;
+    padding:9px 14px;border-radius:10px;font-weight:800;font-size:17px}
+  .recapItem .rp{font-weight:600;font-size:13px;opacity:.8}
 </style>
 </head>
 <body>
@@ -134,6 +138,8 @@
     <h1>Done</h1>
     <div class="final" id="finalScore">0</div>
     <div class="scoreSub" id="finalSub">out of 800</div>
+    <div class="small" style="margin:16px 0 6px">the colors you played — each in its own color</div>
+    <div class="recap" id="recap"></div>
     <button onclick="game.start()">Play again</button>
     <button class="ghost" onclick="game.toStart()">Back to start</button>
   </section>
@@ -234,6 +240,9 @@ const COLORS = [
   {n:"Verdigris",hex:"#43B3AE"},    {n:"Venetian red",hex:"#C80815"},  {n:"Veronica",hex:"#A020F0"},
   {n:"Wine",hex:"#722F37"},         {n:"Wisteria",hex:"#C9A0DC"},      {n:"Xanadu",hex:"#738678"},
   {n:"Zaffre",hex:"#0014A8"},       {n:"Zomp",hex:"#39A78E"},
+  /* duplicate-hue synonyms are intentional — same swatch, different name to recall */
+  {n:"Fuchsia",hex:"#FF00FF"},      {n:"Aqua",hex:"#00FFFF"},
+  {n:"Cinnabar",hex:"#E34234"},     {n:"Paris green",hex:"#50C878"},
 ];
 
 /* derive lock axis + rationale for any color that wasn't hand-curated:
@@ -286,12 +295,12 @@ const $ = id => document.getElementById(id);
 const cv = $("cv"), ctx = cv.getContext("2d");
 
 const game = {
-  deck:[], i:0, total:8, score:0, cur:null, committed:false, guessFrac:null, truthFrac:null,
+  deck:[], i:0, total:8, score:0, cur:null, committed:false, guessFrac:null, truthFrac:null, results:[],
 
   toStart(){ show("start"); },
   start(){
     this.deck = shuffle(COLORS.slice()).slice(0, this.total);
-    this.i=0; this.score=0;
+    this.i=0; this.score=0; this.results=[];
     $("qtot").textContent=this.total; $("runscore").textContent=0;
     show("play"); this.load();
   },
@@ -333,9 +342,14 @@ const game = {
     if(!this.guessFrac||this.committed) return;
     this.committed=true;
     const tf=this.truthFrac, gf=this.guessFrac;
-    const d=Math.hypot(tf.x-gf.x, tf.y-gf.y);
-    const pts=Math.max(0, Math.round(100*(1 - d/Math.SQRT2)));
+    const hueX = this.cur.lock!=="H";          // x-axis is hue (and hue wraps 0↔1)
+    let dx=Math.abs(tf.x-gf.x); if(hueX) dx=Math.min(dx, 1-dx);
+    const dy=Math.abs(tf.y-gf.y);
+    const d=Math.hypot(dx,dy);
+    const maxd=Math.hypot(hueX?0.5:1, 1);      // worst case is half-way around the wheel
+    const pts=Math.max(0, Math.round(100*(1 - d/maxd)));
     this.score+=pts; $("runscore").textContent=this.score;
+    this.results.push({c:this.cur, pts});
 
     // truth marker + connector
     const t=$("mTruth"); t.classList.remove("hidden");
@@ -363,6 +377,17 @@ const game = {
     show("end");
     $("finalScore").textContent=this.score;
     $("finalSub").textContent="out of "+(this.total*100);
+    const recap=$("recap"); recap.innerHTML="";
+    for(const r of this.results){
+      const [R,G,B]=hex2rgb(r.c.hex);
+      const lum=(0.2126*R+0.7152*G+0.0722*B)/255;   // dark color -> light pill, and vice versa
+      const item=document.createElement("div");
+      item.className="recapItem";
+      item.style.background = lum>0.55 ? "#13161c" : "#f1f1f4";
+      item.style.color = r.c.hex;
+      item.innerHTML = `<span class="rn">${r.c.n}</span><span class="rp">${r.pts}</span>`;
+      recap.appendChild(item);
+    }
   }
 };
 
