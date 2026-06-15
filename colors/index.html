@@ -54,6 +54,7 @@
   button{appearance:none;border:0;border-radius:12px;padding:13px 18px;font-size:16px;font-weight:600;
     background:var(--accent);color:#06243a;width:100%;margin-top:8px;cursor:pointer}
   button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  button.alt{background:#7ee0a3;color:#063a1f}
   button:disabled{opacity:.4}
 
   .reveal{margin-top:12px;display:none}
@@ -98,7 +99,7 @@
       You'll be scored by how close you land, then shown the true spot.
     </div>
     <button onclick="game.start()">Start — 8 colors</button>
-    <button class="ghost" onclick="cram.start()">Cram mode — drill all the colors</button>
+    <button class="alt" onclick="cram.start()">Cram mode — drill all the colors</button>
     <p class="small" style="margin-top:8px">Cram is multiple-choice: see a name, tap the matching swatch from six.
     Miss one and it comes back a few cards later — clear the whole deck and you know them all.</p>
   </section>
@@ -166,7 +167,7 @@
     <h1>Deck cleared 🎉</h1>
     <div class="final">all <span id="cramStat1">0</span> colors</div>
     <div class="scoreSub"><span id="cramStat2">0</span> cards seen · <span id="cramStat3">0</span> misses</div>
-    <button onclick="cram.start()">Cram again</button>
+    <button class="alt" onclick="cram.start()">Cram again</button>
     <button class="ghost" onclick="cram.toStart()">Back to start</button>
   </section>
 
@@ -214,13 +215,27 @@ function rgb2hsv(r,g,b){
   const s=mx===0?0:d/mx;
   return [h, s*100, mx*100];
 }
+// OKLab (Björn Ottosson). Matrix coefficients quoted verbatim from bottosson.github.io/posts/oklab.
+// sRGB->linear uses the standard sRGB EOTF constants.
+function srgb2lin(c){ c/=255; return c<=0.04045 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4); }
+function rgb2oklab(r,g,b){
+  const R=srgb2lin(r), G=srgb2lin(g), B=srgb2lin(b);
+  const l=0.4122214708*R+0.5363325363*G+0.0514459929*B;
+  const m=0.2119034982*R+0.6806995451*G+0.1073969566*B;
+  const s=0.0883024619*R+0.2817188376*G+0.6299787005*B;
+  const l_=Math.cbrt(l), m_=Math.cbrt(m), s_=Math.cbrt(s);
+  return [0.2104542553*l_+0.7936177850*m_-0.0040720468*s_,
+          1.9779984951*l_-2.4285922050*m_+0.4505937099*s_,
+          0.0259040371*l_+0.7827717662*m_-0.8086757660*s_];
+}
+function oklabDist(a,b){ return Math.hypot(a[0]-b[0], a[1]-b[1], a[2]-b[2]); }
 
 /* ---------- the colors ----------
    lock: which HSB axis the name pins down (held constant, baked into the gradient).
    The two free axes become the square: x then y, in H,S,B order minus the locked one.
    hex values sourced from Wikipedia's List of colors. */
 const COLORS = [
-  {n:"Azure",      hex:"#007FFF", lock:"H", why:"Azure is unmistakably blue — the hue is settled. The real question is how deep and how vivid it gets."},
+  {n:"Azure",      hex:"#007FFF", lock:"S", why:"Azure is a pure, vivid blue — saturation is maxed, so 'how saturated' is no test. The real question is exactly which blue (its hue) and how bright."},
   {n:"Chartreuse", hex:"#7FFF00", lock:"S", why:"Chartreuse is always near-maximum saturation; what people miss is the exact yellow-green hue and how bright it sits."},
   {n:"Vermilion",  hex:"#E34234", lock:"B", why:"Vermilion is a bright pigment — brightness is a given. The catch is how far toward orange it leans and how pure it is."},
   {n:"Cerulean",   hex:"#007BA7", lock:"H", why:"A fixed sky-ocean blue. The trap is that it's more muted and darker than people expect."},
@@ -242,7 +257,7 @@ const COLORS = [
   {n:"Viridian",   hex:"#40826D", lock:"H", why:"A blue-green hue, but the surprise is how muted and how dark viridian really is."},
   {n:"Saffron",    hex:"#F4C430", lock:"B", why:"A bright spice yellow — hue and saturation are the only variables."},
   {n:"Tangerine",  hex:"#F28500", lock:"B", why:"A bright orange — how red-vs-yellow, and how pure?"},
-  {n:"Ultramarine",hex:"#3F00FF", lock:"H", why:"A deep blue-violet hue — its identity is in how saturated and how dark it is."},
+  {n:"Ultramarine",hex:"#3F00FF", lock:"S", why:"Ultramarine is a pure, intense blue-violet — saturation is maxed. The test is its exact hue and how dark it reads."},
 
   /* the wider deck — lock axis and rationale derived from each color's HSB (see prep()) */
   {n:"Alizarin",hex:"#DB2D43"},     {n:"Amaranth",hex:"#9F2B68"},      {n:"Amethyst",hex:"#9966CC"},
@@ -378,13 +393,17 @@ const game = {
   commit(){
     if(!this.guessFrac||this.committed) return;
     this.committed=true;
-    const tf=this.truthFrac, gf=this.guessFrac;
-    const hueX = this.cur.lock!=="H";          // x-axis is hue (and hue wraps 0↔1)
-    let dx=Math.abs(tf.x-gf.x); if(hueX) dx=Math.min(dx, 1-dx);
-    const dy=Math.abs(tf.y-gf.y);
-    const d=Math.hypot(dx,dy);
-    const maxd=Math.hypot(hueX?0.5:1, 1);      // worst case is half-way around the wheel
-    const pts=Math.max(0, Math.round(100*(1 - d/maxd)));
+    // perceptual scoring: OKLab ΔE between the color you picked and the true color.
+    // Distance is in color space, so hue-wrap and the gray singularity are handled for free.
+    const c=this.cur, gf=this.guessFrac;
+    const truthLab=rgb2oklab(...hex2rgb(c.hex));
+    const labAt=(fx,fy)=>{ const h=makeHSV(c,fx,fy); return rgb2oklab(...hsv2rgb(h.H,h.S,h.B)); };
+    const dE=oklabDist(labAt(gf.x,gf.y), truthLab);
+    let maxE=1e-6;                              // worst reachable ΔE on this square -> 0 pts
+    for(let yi=0;yi<=8;yi++) for(let xi=0;xi<=8;xi++){
+      const e=oklabDist(labAt(xi/8,yi/8), truthLab); if(e>maxE) maxE=e;
+    }
+    const pts=Math.max(0, Math.round(100*(1 - dE/maxE)));
     this.score+=pts; $("runscore").textContent=this.score;
     this.results.push({c:this.cur, pts});
 
@@ -433,11 +452,32 @@ function rgbAt(color,fx,fy){ const h=makeHSV(color,fx,fy); const [r,g,b]=hsv2rgb
 function hexAt(color,fx,fy){ const h=makeHSV(color,fx,fy); const [r,g,b]=hsv2rgb(h.H,h.S,h.B);
   return "#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("").toUpperCase(); }
 /* ---------- cram (Anki-style multiple choice) ---------- */
+const CRAM_MIN_DE = 0.10;   // min OKLab ΔE between any two swatches shown together
+function minLabDist(lab,labs){ let m=Infinity; for(const L of labs){const d=oklabDist(lab,L); if(d<m)m=d;} return m; }
+function buildCramOptions(answer){
+  const aLab=rgb2oklab(...hex2rgb(answer.hex));
+  const cands=shuffle(COLORS.filter(c=>c.hex!==answer.hex).map(c=>({c,lab:rgb2oklab(...hex2rgb(c.hex))})));
+  const chosen=[], labs=[aLab];
+  for(const cand of cands){
+    if(chosen.length===5) break;
+    if(minLabDist(cand.lab,labs) < CRAM_MIN_DE) continue;   // too close to answer or a sibling
+    chosen.push(cand.c); labs.push(cand.lab);
+  }
+  if(chosen.length<5){   // dense region: fall back to the most-distinct remaining so we always get 6
+    const rest=cands.filter(x=>!chosen.includes(x.c)).sort((p,q)=>minLabDist(q.lab,labs)-minLabDist(p.lab,labs));
+    for(const r of rest){ if(chosen.length===5) break; chosen.push(r.c); labs.push(r.lab); }
+  }
+  return [answer, ...chosen];
+}
+
 const cram = {
   queue:[], total:0, learned:0, attempts:0, lapses:0, cur:null, options:[], answered:false, advancing:false, advTimer:null,
 
   toStart(){ this.clearTimer(); show("start"); },
-  quit(){ this.clearTimer(); show("start"); },
+  quit(){
+    if(this.queue.length>0 && !confirm("Exit cram mode? You'll lose progress on the "+(this.total-this.learned)+" colors you haven't cleared yet.")) return;
+    this.clearTimer(); show("start");
+  },
   clearTimer(){ if(this.advTimer){clearTimeout(this.advTimer); this.advTimer=null;} },
 
   start(){
@@ -450,13 +490,7 @@ const cram = {
     this.clearTimer(); this.answered=false; this.advancing=false;
     if(this.queue.length===0){ this.finish(); return; }
     this.cur = this.queue.shift();
-    // 6 options: the answer + 5 distractors with distinct hexes (so no twin swatches)
-    const used=new Set([this.cur.hex]); const distract=[];
-    for(const c of shuffle(COLORS.slice())){
-      if(!used.has(c.hex)){ used.add(c.hex); distract.push(c); }
-      if(distract.length===5) break;
-    }
-    this.options = shuffle([this.cur, ...distract]);
+    this.options = shuffle(buildCramOptions(this.cur));   // answer + 5 well-separated distractors
     this.render();
   },
   render(){
