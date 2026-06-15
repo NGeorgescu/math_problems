@@ -1,0 +1,6 @@
+[paley] A(8) = find_smallest_SK(7)
+[paley] threads = 22, lo = 64, hi = 200704, budget = 100000, verify_timeout = 0s, bookmark = bookmark_a8.txt
+[resume] bookmark says n=3719, lo was 64
+n=  3719  candidate, verifying ...  fail @ [0, 1, 1038, 2108, 3101, 3252, 3645]  (11635.646s)
+n=  3727  candidate, verifying ...  fail @ [0, 1, 54, 1164, 1242, 1698, 1994]  (73036.593s)
+n=  3739  candidate, verifying ...  

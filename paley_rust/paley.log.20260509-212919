@@ -1,0 +1,18 @@
+[paley] A(8) = find_smallest_SK(7)
+[paley] threads = 22, lo = 2683, hi = 200704, budget = 100000, verify_timeout = 0s, bookmark = bookmark_a8.txt
+[resume] bookmark says n=3559, lo was 2683
+n=  3559  candidate, verifying ...  fail @ [0, 1, 1410, 1435, 1964, 2411, 2677]  (40735.973s)
+n=  3571  candidate, verifying ...  fail @ [0, 1, 20, 311, 1597, 3129, 3453]  (305.140s)
+n=  3583  candidate, verifying ...  fail @ [0, 1, 1448, 1700, 2412, 2915, 3023]  (312320.750s)
+n=  3607  candidate, verifying ...  fail @ [0, 1, 1628, 2838, 2895, 3135, 3557]  (45616.957s)
+n=  3623  candidate, verifying ...  fail @ [0, 1, 1013, 1145, 1197, 1917, 3483]  (1320.334s)
+n=  3631  candidate, verifying ...  fail @ [0, 1, 712, 1073, 1714, 2338, 2428]  (2453.315s)
+n=  3643  candidate, verifying ...  fail @ [0, 1, 71, 715, 1508, 2165, 3290]  (7201.261s)
+n=  3659  candidate, verifying ...  fail @ [0, 1, 998, 2316, 2334, 2539, 3577]  (2520.044s)
+n=  3671  fail (structural)  0.002s
+n=  3691  candidate, verifying ...  fail @ [0, 1, 984, 1365, 1974, 2094, 3327]  (13923.111s)
+n=  3719  candidate, verifying ...  
+[ctrl-c] requesting graceful stop after current prime ...
+interrupted mid-verify
+
+[paley] no answer found (or interrupted)

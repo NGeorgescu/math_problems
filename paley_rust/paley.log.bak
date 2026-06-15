@@ -1,0 +1,21 @@
+n=  3391  candidate, verifying ...  fail @ [0, 1, 340, 625, 1369, 2258, 2709]  (8.089s)
+n=  3407  candidate, verifying ...  fail @ [0, 1, 99, 888, 1527, 1577, 2737]  (1688.655s)
+n=  3463  candidate, verifying ...  fail @ [0, 1, 10, 417, 519, 1450, 1506]  (1139.146s)
+n=  3467  candidate, verifying ...  fail @ [0, 1, 2468, 2548, 2822, 2864, 2889]  (705.157s)
+n=  3491  candidate, verifying ...  fail @ [0, 1, 898, 955, 1370, 2468, 2542]  (1886.564s)
+n=  3499  candidate, verifying ...  fail @ [0, 1, 867, 1881, 2165, 2334, 3273]  (6243.598s)
+n=  3511  candidate, verifying ...  fail @ [0, 1, 47, 944, 1197, 1454, 1746]  (18692.423s)
+n=  3527  candidate, verifying ...  fail @ [0, 1, 674, 1343, 1371, 1836, 2707]  (2164.651s)
+n=  3539  candidate, verifying ...  fail @ [0, 1, 62, 1679, 2304, 2344, 3421]  (30739.127s)
+n=  3547  candidate, verifying ...  [nsg@syrv paley_rust]$ tail paley.log
+n=  3407  candidate, verifying ...  fail @ [0, 1, 99, 888, 1527, 1577, 2737]  (1688.655s)
+n=  3463  candidate, verifying ...  fail @ [0, 1, 10, 417, 519, 1450, 1506]  (1139.146s)
+n=  3467  candidate, verifying ...  fail @ [0, 1, 2468, 2548, 2822, 2864, 2889]  (705.157s)
+n=  3491  candidate, verifying ...  fail @ [0, 1, 898, 955, 1370, 2468, 2542]  (1886.564s)
+n=  3499  candidate, verifying ...  fail @ [0, 1, 867, 1881, 2165, 2334, 3273]  (6243.598s)
+n=  3511  candidate, verifying ...  fail @ [0, 1, 47, 944, 1197, 1454, 1746]  (18692.423s)
+n=  3527  candidate, verifying ...  fail @ [0, 1, 674, 1343, 1371, 1836, 2707]  (2164.651s)
+n=  3539  candidate, verifying ...  fail @ [0, 1, 62, 1679, 2304, 2344, 3421]  (30739.127s)
+n=  3547  candidate, verifying ...  fail @ [0, 1, 2, 443, 578, 1423, 2363]  (43746.309s)
+n=  3559  candidate, verifying ...  
+
