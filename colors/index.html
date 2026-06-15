@@ -13,7 +13,10 @@
   html,body{margin:0;background:var(--bg);color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     -webkit-text-size-adjust:100%}
-  .wrap{max-width:440px;margin:0 auto;padding:18px 16px 40px}
+  .wrap{max-width:440px;margin:0 auto;padding:18px 16px 40px;position:relative}
+  .xclose{position:absolute;top:8px;right:10px;width:32px;height:32px;border-radius:50%;
+    background:var(--panel);color:var(--muted);border:1px solid var(--line);
+    font-size:17px;line-height:1;cursor:pointer;z-index:5;padding:0}
   h1{font-size:22px;margin:.2em 0 .1em;letter-spacing:.2px}
   .sub{color:var(--muted);font-size:13px;margin:0 0 16px;line-height:1.5}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;
@@ -66,7 +69,10 @@
   a.namelink{text-decoration:none;color:inherit;border-bottom:1px dotted rgba(255,255,255,.45)}
   a.namelink:after{content:"\2197";font-size:.5em;vertical-align:super;opacity:.55;
     font-style:normal;margin-left:2px}
-  .hud{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-bottom:10px}
+  .hud{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-bottom:10px;padding-right:38px}
+  .optcell.gone,.optname.gone{opacity:.12;pointer-events:none;box-shadow:none}
+  .timerwrap{height:7px;background:var(--line);border-radius:999px;overflow:hidden;margin:10px 0 2px}
+  .timerbar{height:100%;background:#ffcf6b;width:100%;transition:width .1s linear}
   .hud b{color:var(--ink)}
   .center{text-align:center}
   .final{font-size:40px;font-weight:800;margin:6px 0}
@@ -120,6 +126,7 @@
 
   <!-- PLAY -->
   <section id="play" class="hidden">
+    <button class="xclose" onclick="game.quit()" aria-label="exit">✕</button>
     <div class="hud"><span>Round <b id="qnum">1</b>/<b id="qtot">8</b></span>
       <span>Score <b id="runscore">0</b></span></div>
 
@@ -165,26 +172,30 @@
 
   <!-- CRAM (multiple choice) -->
   <section id="cram" class="hidden">
-    <div class="hud"><span id="cramMode">Match</span><span><b id="cramCount">0 / 0</b> learned</span></div>
+    <button class="xclose" onclick="cram.quit()" aria-label="exit">✕</button>
+    <div class="hud"><span id="cramMode">Match</span><span id="cramRight"><b id="cramCount">0 / 0</b> learned</span></div>
     <div class="progwrap"><div class="progbar" id="cramProg"></div></div>
     <div class="card">
       <div class="small" id="cramInstr" style="text-align:center">tap the swatch that matches</div>
       <div id="cramPromptSwatch" class="bigswatch hidden"></div>
+      <div id="cramTimerRow" class="hidden">
+        <div class="timerwrap"><div class="timerbar" id="cramTimer"></div></div>
+        <div class="small" id="cramPts" style="text-align:center">worth 100 pts</div>
+      </div>
       <div style="text-align:center;margin:4px 0 2px"><a class="name namelink" id="cramName" target="_blank" rel="noopener" style="display:inline-block">—</a></div>
       <div class="optgrid" id="cramGrid"></div>
       <div class="cramFeedback" id="cramFeedback"></div>
       <div class="blurb" id="cramBlurb" style="text-align:center"></div>
       <button id="cramNext" class="hidden" onclick="cram.next()">Next →</button>
     </div>
-    <button class="ghost" onclick="cram.quit()">End cram</button>
   </section>
 
   <!-- CRAM END -->
   <section id="cramEnd" class="hidden center">
-    <h1>Deck cleared 🎉</h1>
-    <div class="final">all <span id="cramStat1">0</span> colors</div>
-    <div class="scoreSub"><span id="cramStat2">0</span> cards seen · <span id="cramStat3">0</span> misses</div>
-    <button class="alt" onclick="cram.again()">Drill again</button>
+    <h1 id="cramEndTitle">Deck cleared 🎉</h1>
+    <div class="final" id="cramEndBig">—</div>
+    <div class="scoreSub" id="cramEndSub">—</div>
+    <button class="alt" onclick="cram.again()">Play again</button>
     <button class="ghost" onclick="cram.toStart()">Back to start</button>
   </section>
 
@@ -504,6 +515,8 @@ const game = {
   deck:[], i:0, total:8, score:0, cur:null, committed:false, guessFrac:null, truthFrac:null, results:[],
 
   toStart(){ show("start"); },
+  quit(){ if(this.i+1>=this.total && this.committed){ show("start"); return; }
+          if(confirm("Exit the quiz? This round won't be saved.")) show("start"); },
   start(){
     this.deck = shuffle(COLORS.slice()).slice(0, this.total);
     this.i=0; this.score=0; this.results=[];
@@ -630,31 +643,47 @@ function buildCramOptions(answer){
   return [answer, ...chosen];
 }
 
+const DESCRIBE_N = 15, TIMER_MS = 9000, MAX_PTS = 100;
 const cram = {
-  dir:"match", queue:[], total:0, learned:0, attempts:0, lapses:0, cur:null, options:[], answered:false, advancing:false, advTimer:null,
+  dir:"match", queue:[], total:0, learned:0, attempts:0, lapses:0,
+  score:0, correctCount:0,                                  // describe (lightning) stats
+  cur:null, options:[], answered:false, advancing:false,
+  advTimer:null, tickId:null, tStart:0, elimFired:0, curPts:0,
 
-  toStart(){ this.clearTimer(); show("start"); },
+  toStart(){ this.clearTimers(); show("start"); },
   quit(){
-    if(this.queue.length>0 && !confirm("Exit? You'll lose progress on the "+(this.total-this.learned)+" colors you haven't cleared yet.")) return;
-    this.clearTimer(); show("start");
+    const inProgress = this.dir==="describe" ? (this.learned<this.total) : (this.queue.length>0);
+    if(inProgress && !confirm("Exit? This round's progress won't be saved.")) return;
+    this.clearTimers(); show("start");
   },
-  clearTimer(){ if(this.advTimer){clearTimeout(this.advTimer); this.advTimer=null;} },
+  clearTimers(){ if(this.advTimer){clearTimeout(this.advTimer); this.advTimer=null;}
+                 if(this.tickId){clearInterval(this.tickId); this.tickId=null;} },
 
   start(dir){
-    this.dir = dir || "match";              // 'match' = name→color, 'describe' = color→name
+    this.dir = dir || "match";
+    const describe = this.dir==="describe";
     this.queue = shuffle(COLORS.slice());
+    if(describe) this.queue = this.queue.slice(0, Math.min(DESCRIBE_N, this.queue.length));
     this.total = this.queue.length;
-    this.learned=0; this.attempts=0; this.lapses=0;
-    $("cramMode").textContent = this.dir==="describe" ? "Describe — color → name" : "Match — name → color";
+    this.learned=0; this.attempts=0; this.lapses=0; this.score=0; this.correctCount=0;
+    $("cramMode").textContent = describe ? "Describe — lightning round ⚡" : "Match — name → color";
+    $("cramTimerRow").classList.toggle("hidden", !describe);
     show("cram"); this.load();
   },
   again(){ this.start(this.dir); },
   load(){
-    this.clearTimer(); this.answered=false; this.advancing=false;
+    this.clearTimers(); this.answered=false; this.advancing=false;
     if(this.queue.length===0){ this.finish(); return; }
     this.cur = this.queue.shift();
-    this.options = shuffle(buildCramOptions(this.cur));   // answer + 5 well-separated distractors
+    this.options = shuffle(buildCramOptions(this.cur));
     this.render();
+    if(this.dir==="describe") this.startTimer();
+  },
+  hud(){
+    $("cramProg").style.width=(100*this.learned/this.total)+"%";
+    $("cramRight").innerHTML = this.dir==="describe"
+      ? "<b>"+this.score+"</b> pts · <b>"+this.learned+"/"+this.total+"</b>"
+      : "<b>"+this.learned+" / "+this.total+"</b> learned";
   },
   render(){
     const c=this.cur, describe=(this.dir==="describe");
@@ -667,8 +696,7 @@ const cram = {
       $("cramName").textContent=c.n;
     }
     $("cramName").removeAttribute("href"); $("cramName").classList.remove("namelink");
-    $("cramCount").textContent=this.learned+" / "+this.total;
-    $("cramProg").style.width=(100*this.learned/this.total)+"%";
+    this.hud();
     const grid=$("cramGrid"); grid.innerHTML="";
     this.options.forEach((o,i)=>{
       const cell=document.createElement("button");
@@ -681,47 +709,108 @@ const cram = {
     $("cramBlurb").textContent="";
     $("cramNext").classList.add("hidden");
   },
-  pick(i,cell){
-    if(this.answered) return;
-    this.answered=true; this.attempts++;
-    const chosen=this.options[i];
-    const correct = (chosen.hex===this.cur.hex);
+  revealName(){
+    $("cramName").textContent=this.cur.n;
+    $("cramName").href=wikiUrl(this.cur.n); $("cramName").classList.add("namelink");
+    $("cramNext").classList.remove("hidden");
+  },
+  markCells(chosenCell){
     const cells=$("cramGrid").children;
     this.options.forEach((o,idx)=>{
       if(o.hex===this.cur.hex) cells[idx].classList.add("right");
-      else cells[idx].classList.add("dim");
+      else if(!cells[idx].classList.contains("gone")) cells[idx].classList.add("dim");
     });
-    if(!correct){ cell.classList.remove("dim"); cell.classList.add("wrong"); }
+    if(chosenCell && !chosenCell.classList.contains("right")){ chosenCell.classList.remove("dim"); chosenCell.classList.add("wrong"); }
+  },
 
+  pick(i,cell){
+    if(this.answered) return;
+    if(this.dir==="describe") this.pickDescribe(i,cell); else this.pickMatch(i,cell);
+  },
+  pickMatch(i,cell){                                 // drill: requeue misses, clear the deck
+    this.answered=true; this.attempts++;
+    const chosen=this.options[i], correct=(chosen.hex===this.cur.hex);
+    this.markCells(cell);
     const fb=$("cramFeedback");
     if(correct){
-      this.learned++;
-      $("cramCount").textContent=this.learned+" / "+this.total;
-      $("cramProg").style.width=(100*this.learned/this.total)+"%";
+      this.learned++; this.hud();
       fb.textContent="✓ "+this.cur.n; fb.className="cramFeedback ok";
-      this.advTimer=setTimeout(()=>this.next(), 700);   // snappy auto-advance
+      this.advTimer=setTimeout(()=>this.next(), 700);
     }else{
       this.lapses++;
-      const gap=3+Math.floor(Math.random()*3);          // comes back a few cards later
+      const gap=3+Math.floor(Math.random()*3);
       this.queue.splice(Math.min(gap,this.queue.length),0,this.cur);
       fb.textContent="✗ you tapped "+chosen.n+" — the answer was "+this.cur.n;
       fb.className="cramFeedback bad";
       $("cramBlurb").textContent=this.cur.blurb || "";
     }
-    // reveal the (now-safe) name as a Wikipedia link in both modes
-    $("cramName").textContent=this.cur.n;
-    $("cramName").href=wikiUrl(this.cur.n); $("cramName").classList.add("namelink");
-    $("cramNext").classList.remove("hidden");
+    this.revealName();
+  },
+  pickDescribe(i,cell){                              // lightning: score by speed, no requeue
+    this.answered=true; this.clearTimers();
+    const chosen=this.options[i], correct=(chosen.hex===this.cur.hex);
+    this.markCells(cell);
+    const fb=$("cramFeedback");
+    if(correct){
+      const pts=this.curPts; this.score+=pts; this.correctCount++;
+      fb.textContent="✓ "+this.cur.n+"   +"+pts; fb.className="cramFeedback ok";
+      this.advTimer=setTimeout(()=>this.next(), 750);
+    }else{
+      fb.textContent="✗ you tapped "+chosen.n+" — it was "+this.cur.n+"   +0"; fb.className="cramFeedback bad";
+      $("cramBlurb").textContent=this.cur.blurb || "";
+    }
+    this.learned++; this.hud();
+    this.revealName();
+  },
+  timeout(){                                         // describe: ran out of time
+    if(this.answered) return;
+    this.answered=true; this.clearTimers();
+    this.markCells(null);
+    $("cramFeedback").textContent="⏱ out of time — it was "+this.cur.n+"   +0";
+    $("cramFeedback").className="cramFeedback bad";
+    $("cramBlurb").textContent=this.cur.blurb || "";
+    this.learned++; this.hud();
+    this.revealName();
+  },
+
+  startTimer(){
+    this.tStart = (window.performance && performance.now) ? performance.now() : Date.now();
+    this.elimFired=0; this.curPts=MAX_PTS;
+    $("cramTimer").style.width="100%";
+    $("cramPts").textContent="worth "+MAX_PTS+" pts — answer fast";
+    this.tickId=setInterval(()=>this.tick(), 100);
+  },
+  tick(){
+    if(this.answered) return;
+    const now=(window.performance && performance.now) ? performance.now() : Date.now();
+    const elapsed=now-this.tStart, frac=Math.max(0,1-elapsed/TIMER_MS);
+    this.curPts=Math.round(MAX_PTS*frac);
+    $("cramTimer").style.width=(frac*100)+"%";
+    $("cramPts").textContent = this.curPts>0 ? ("worth "+this.curPts+" pts") : "no points left";
+    const due=Math.floor(elapsed/(TIMER_MS/6));      // remove a wrong option at 1/6,2/6,…5/6 of the time
+    while(this.elimFired<5 && this.elimFired<due){ this.eliminateOne(); this.elimFired++; }
+    if(elapsed>=TIMER_MS) this.timeout();
+  },
+  eliminateOne(){
+    const cells=$("cramGrid").children, cand=[];
+    this.options.forEach((o,idx)=>{ if(o.hex!==this.cur.hex && !cells[idx].classList.contains("gone")) cand.push(idx); });
+    if(cand.length) cells[cand[Math.floor(Math.random()*cand.length)]].classList.add("gone");
   },
   next(){
     if(this.advancing) return; this.advancing=true;
     this.load();
   },
   finish(){
-    show("cramEnd");
-    $("cramStat1").textContent=this.total;
-    $("cramStat2").textContent=this.attempts;
-    $("cramStat3").textContent=this.lapses;
+    this.clearTimers(); show("cramEnd");
+    if(this.dir==="describe"){
+      $("cramEndTitle").textContent="Lightning round ⚡";
+      $("cramEndBig").textContent=this.score+" pts";
+      $("cramEndSub").textContent=this.correctCount+" / "+this.total+" correct · max "+(this.total*MAX_PTS);
+    }else{
+      $("cramEndTitle").textContent="Deck cleared 🎉";
+      $("cramEndBig").textContent="all "+this.total+" colors";
+      $("cramEndSub").textContent=this.attempts+" cards seen · "+this.lapses+" misses";
+    }
   }
 };
 
