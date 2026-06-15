@@ -508,7 +508,8 @@ const game = {
     const ax = axesFor(c.lock);
     $("qnum").textContent=this.i+1;
     $("swatch").style.background="#000";   // your pick starts black, fills in as you slide
-    $("cname").textContent=c.n; $("cname").href=wikiUrl(c.n);
+    $("cname").textContent=c.n;            // not a link until you've answered (no peeking)
+    $("cname").removeAttribute("href"); $("cname").classList.remove("namelink");
     $("clock").textContent = ({H:"Hue",S:"Saturation",B:"Brightness"}[c.lock]) + " is fixed — guess the other two";
     $("cprompt").textContent = `place its ${full(ax.x)} & ${full(ax.y)}`;
     $("axL").textContent = AXLABEL[ax.x].l;
@@ -566,6 +567,7 @@ const game = {
     $("hexTrue").textContent=this.cur.hex.toUpperCase();
     $("why").textContent=this.cur.why;
     $("etymo").textContent=this.cur.blurb || "";
+    $("cname").href=wikiUrl(this.cur.n); $("cname").classList.add("namelink");  // now linkable
     $("reveal").style.display="block";
     $("lockBtn").classList.add("hidden");
     $("nextBtn").classList.remove("hidden");
@@ -644,7 +646,8 @@ const cram = {
     this.render();
   },
   render(){
-    $("cramName").textContent=this.cur.n; $("cramName").href=wikiUrl(this.cur.n);
+    $("cramName").textContent=this.cur.n;          // plain text until answered
+    $("cramName").removeAttribute("href"); $("cramName").classList.remove("namelink");
     $("cramCount").textContent=this.learned+" / "+this.total;
     $("cramProg").style.width=(100*this.learned/this.total)+"%";
     const grid=$("cramGrid"); grid.innerHTML="";
@@ -686,6 +689,7 @@ const cram = {
       fb.className="cramFeedback bad";
       $("cramBlurb").textContent=this.cur.blurb || "";
     }
+    $("cramName").href=wikiUrl(this.cur.n); $("cramName").classList.add("namelink");  // linkable after answering
     $("cramNext").classList.remove("hidden");
   },
   next(){
