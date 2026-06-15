@@ -119,6 +119,7 @@
     <button onclick="game.start()">Start — 8 colors</button>
     <button class="alt" onclick="cram.start('match')">Match — name → color</button>
     <button class="alt" onclick="cram.start('describe')">Describe — color → name</button>
+    <button class="alt" onclick="fine.start()">Fine — spot the exact shade</button>
     <p class="small" style="margin-top:8px">Match &amp; Describe are flashcard drills (6-way multiple choice). Miss a card
     and it returns a few cards later — clear the whole deck and you know them all. Same color-distance
     rule keeps the six options visibly distinct.</p>
@@ -197,6 +198,28 @@
     <div class="scoreSub" id="cramEndSub">—</div>
     <button class="alt" onclick="cram.again()">Play again</button>
     <button class="ghost" onclick="cram.toStart()">Back to start</button>
+  </section>
+
+  <!-- FINE (discrimination) -->
+  <section id="fine" class="hidden">
+    <button class="xclose" onclick="fine.quit()" aria-label="exit">✕</button>
+    <div class="hud"><span>Fine — sharp eye 👁</span><span>level <b id="fineLevel">1</b></span></div>
+    <div class="card">
+      <div class="small" style="text-align:center">tap the tile that exactly matches this</div>
+      <div id="fineRef" class="bigswatch"></div>
+      <div class="optgrid" id="fineGrid"></div>
+      <div class="cramFeedback" id="fineFeedback"></div>
+      <button id="fineNext" class="hidden">Next →</button>
+    </div>
+  </section>
+
+  <!-- FINE END -->
+  <section id="fineEnd" class="hidden center">
+    <h1>Sharp eye 👁</h1>
+    <div class="final">level <span id="fineEndLevel">0</span></div>
+    <div class="scoreSub" id="fineEndSub">—</div>
+    <button class="alt" onclick="fine.start()">Try again</button>
+    <button class="ghost" onclick="fine.toStart()">Back to start</button>
   </section>
 
   <!-- END -->
@@ -814,8 +837,86 @@ const cram = {
   }
 };
 
+/* ---------- fine (discrimination ladder) ---------- */
+function rgbHex(r,g,b){ return "#"+[r,g,b].map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,"0")).join("").toUpperCase(); }
+// a color a perceptual distance ~targetDE (OKLab) from hex, or null if it can't hit the band
+function nearColor(hex, targetDE){
+  const [r,g,b]=hex2rgb(hex), baseLab=rgb2oklab(r,g,b);
+  const lo=targetDE*0.7, hi=targetDE*1.4, scale=Math.max(2, Math.round(targetDE*240));
+  const ri=()=> Math.round((Math.random()*2-1)*scale);
+  for(let t=0;t<80;t++){
+    const nr=r+ri(), ng=g+ri(), nb=b+ri();
+    const cr=Math.max(0,Math.min(255,nr)), cg=Math.max(0,Math.min(255,ng)), cb=Math.max(0,Math.min(255,nb));
+    const de=oklabDist(rgb2oklab(cr,cg,cb), baseLab);
+    if(de>=lo && de<=hi) return rgbHex(cr,cg,cb);
+  }
+  return null;
+}
+
+const FINE_DE0 = 0.06, FINE_FLOOR = 0.006;
+const fine = {
+  level:1, base:null, options:[], answered:false, advancing:false, t:null,
+
+  toStart(){ if(this.t)clearTimeout(this.t); show("start"); },
+  quit(){ if(this.level>1 && !confirm("Exit? Your run ends here.")) return; if(this.t)clearTimeout(this.t); show("start"); },
+  curDE(){ return Math.max(FINE_FLOOR, FINE_DE0*Math.pow(0.9, this.level-1)); },
+  curN(){ return Math.min(6, 3+Math.floor((this.level-1)/3)); },
+
+  start(){ this.level=1; show("fine"); this.load(); },
+  load(){
+    this.answered=false; this.advancing=false; if(this.t){clearTimeout(this.t); this.t=null;}
+    this.base = COLORS[Math.floor(Math.random()*COLORS.length)];
+    const de=this.curDE(), n=this.curN();
+    const opts=[{hex:this.base.hex, exact:true}], seen=new Set([this.base.hex.toUpperCase()]);
+    let guard=0;
+    while(opts.length<n && guard++<500){
+      const h=nearColor(this.base.hex, de);
+      if(h && !seen.has(h)){ seen.add(h); opts.push({hex:h, exact:false}); }
+    }
+    this.options = shuffle(opts);
+    this.render();
+  },
+  render(){
+    $("fineLevel").textContent=this.level;
+    $("fineRef").style.background=this.base.hex;
+    const grid=$("fineGrid"); grid.innerHTML="";
+    this.options.forEach((o,i)=>{
+      const cell=document.createElement("button");
+      cell.className="optcell"; cell.style.background=o.hex;
+      cell.setAttribute("aria-label","color tile");
+      cell.onclick=()=>this.pick(i,cell);
+      grid.appendChild(cell);
+    });
+    $("fineFeedback").textContent=""; $("fineFeedback").className="cramFeedback";
+    $("fineNext").classList.add("hidden");
+  },
+  pick(i,cell){
+    if(this.answered) return; this.answered=true;
+    const o=this.options[i], cells=$("fineGrid").children, fb=$("fineFeedback"), next=$("fineNext");
+    this.options.forEach((op,idx)=>{ if(op.exact) cells[idx].classList.add("right"); else cells[idx].classList.add("dim"); });
+    if(o.exact){
+      this.level++;
+      fb.textContent="✓ "+this.base.n+" — level "+this.level; fb.className="cramFeedback ok";
+      next.textContent="Next →"; next.onclick=()=>this.next(); next.classList.remove("hidden");
+      this.t=setTimeout(()=>this.next(), 700);
+    }else{
+      cell.classList.remove("dim"); cell.classList.add("wrong");
+      fb.textContent="✗ that was "+this.base.n+" — the framed tile (ΔE "+this.curDE().toFixed(3)+") was exact";
+      fb.className="cramFeedback bad";
+      next.textContent="See result →"; next.onclick=()=>this.finish(); next.classList.remove("hidden");
+    }
+  },
+  next(){ if(this.advancing) return; this.advancing=true; this.load(); },
+  finish(){
+    if(this.t)clearTimeout(this.t);
+    show("fineEnd");
+    $("fineEndLevel").textContent=this.level;
+    $("fineEndSub").textContent="your eye resolved down to ΔE "+this.curDE().toFixed(3)+" (OKLab)";
+  }
+};
+
 function full(a){return {H:"hue",S:"saturation",B:"brightness"}[a];}
-function show(id){ for(const s of ["start","play","end","cram","cramEnd"]) $(s).classList.add("hidden"); $(id).classList.remove("hidden"); }
+function show(id){ for(const s of ["start","play","end","cram","cramEnd","fine","fineEnd"]) $(s).classList.add("hidden"); $(id).classList.remove("hidden"); }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
 
 function drawSquare(c){
