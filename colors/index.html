@@ -71,6 +71,17 @@
   .recapItem{display:flex;justify-content:space-between;align-items:center;
     padding:9px 14px;border-radius:10px;font-weight:800;font-size:17px}
   .recapItem .rp{font-weight:600;font-size:13px;opacity:.8}
+  .progwrap{height:8px;background:var(--line);border-radius:999px;overflow:hidden;margin:6px 0 2px}
+  .progbar{height:100%;background:var(--accent);width:0;transition:width .3s}
+  .optgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+  .optcell{aspect-ratio:16/10;border-radius:12px;border:1px solid rgba(255,255,255,.15);
+    padding:0;cursor:pointer;transition:opacity .12s,box-shadow .12s}
+  .optcell.right{box-shadow:0 0 0 4px #2fe06a}
+  .optcell.wrong{box-shadow:0 0 0 4px #ff4d4d}
+  .optcell.dim{opacity:.3}
+  .cramFeedback{min-height:34px;font-size:13px;margin:6px 0 2px;text-align:center;color:var(--muted);line-height:1.4}
+  .cramFeedback.ok{color:#2fe06a;font-weight:700}
+  .cramFeedback.bad{color:#ff9a9a}
 </style>
 </head>
 <body>
@@ -87,6 +98,9 @@
       You'll be scored by how close you land, then shown the true spot.
     </div>
     <button onclick="game.start()">Start — 8 colors</button>
+    <button class="ghost" onclick="cram.start()">Cram mode — drill all the colors</button>
+    <p class="small" style="margin-top:8px">Cram is multiple-choice: see a name, tap the matching swatch from six.
+    Miss one and it comes back a few cards later — clear the whole deck and you know them all.</p>
   </section>
 
   <!-- PLAY -->
@@ -131,6 +145,29 @@
       <button id="lockBtn" onclick="game.commit()" disabled>Lock in guess</button>
       <button id="nextBtn" class="ghost hidden" onclick="game.next()">Next color →</button>
     </div>
+  </section>
+
+  <!-- CRAM (multiple choice) -->
+  <section id="cram" class="hidden">
+    <div class="hud"><span>Cram mode</span><span><b id="cramCount">0 / 0</b> learned</span></div>
+    <div class="progwrap"><div class="progbar" id="cramProg"></div></div>
+    <div class="card">
+      <div class="small" style="text-align:center">tap the swatch that is</div>
+      <div class="name" id="cramName" style="text-align:center;margin:4px 0 2px">—</div>
+      <div class="optgrid" id="cramGrid"></div>
+      <div class="cramFeedback" id="cramFeedback"></div>
+      <button id="cramNext" class="hidden" onclick="cram.next()">Next →</button>
+    </div>
+    <button class="ghost" onclick="cram.quit()">End cram</button>
+  </section>
+
+  <!-- CRAM END -->
+  <section id="cramEnd" class="hidden center">
+    <h1>Deck cleared 🎉</h1>
+    <div class="final">all <span id="cramStat1">0</span> colors</div>
+    <div class="scoreSub"><span id="cramStat2">0</span> cards seen · <span id="cramStat3">0</span> misses</div>
+    <button onclick="cram.start()">Cram again</button>
+    <button class="ghost" onclick="cram.toStart()">Back to start</button>
   </section>
 
   <!-- END -->
@@ -395,8 +432,90 @@ const game = {
 function rgbAt(color,fx,fy){ const h=makeHSV(color,fx,fy); const [r,g,b]=hsv2rgb(h.H,h.S,h.B); return `rgb(${r}, ${g}, ${b})`; }
 function hexAt(color,fx,fy){ const h=makeHSV(color,fx,fy); const [r,g,b]=hsv2rgb(h.H,h.S,h.B);
   return "#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("").toUpperCase(); }
+/* ---------- cram (Anki-style multiple choice) ---------- */
+const cram = {
+  queue:[], total:0, learned:0, attempts:0, lapses:0, cur:null, options:[], answered:false, advancing:false, advTimer:null,
+
+  toStart(){ this.clearTimer(); show("start"); },
+  quit(){ this.clearTimer(); show("start"); },
+  clearTimer(){ if(this.advTimer){clearTimeout(this.advTimer); this.advTimer=null;} },
+
+  start(){
+    this.queue = shuffle(COLORS.slice());
+    this.total = this.queue.length;
+    this.learned=0; this.attempts=0; this.lapses=0;
+    show("cram"); this.load();
+  },
+  load(){
+    this.clearTimer(); this.answered=false; this.advancing=false;
+    if(this.queue.length===0){ this.finish(); return; }
+    this.cur = this.queue.shift();
+    // 6 options: the answer + 5 distractors with distinct hexes (so no twin swatches)
+    const used=new Set([this.cur.hex]); const distract=[];
+    for(const c of shuffle(COLORS.slice())){
+      if(!used.has(c.hex)){ used.add(c.hex); distract.push(c); }
+      if(distract.length===5) break;
+    }
+    this.options = shuffle([this.cur, ...distract]);
+    this.render();
+  },
+  render(){
+    $("cramName").textContent=this.cur.n;
+    $("cramCount").textContent=this.learned+" / "+this.total;
+    $("cramProg").style.width=(100*this.learned/this.total)+"%";
+    const grid=$("cramGrid"); grid.innerHTML="";
+    this.options.forEach((c,i)=>{
+      const cell=document.createElement("button");
+      cell.className="optcell"; cell.style.background=c.hex;
+      cell.setAttribute("aria-label","color choice");
+      cell.onclick=()=>this.pick(i,cell);
+      grid.appendChild(cell);
+    });
+    $("cramFeedback").textContent=""; $("cramFeedback").className="cramFeedback";
+    $("cramNext").classList.add("hidden");
+  },
+  pick(i,cell){
+    if(this.answered) return;
+    this.answered=true; this.attempts++;
+    const chosen=this.options[i];
+    const correct = (chosen.hex===this.cur.hex);
+    const cells=$("cramGrid").children;
+    this.options.forEach((c,idx)=>{
+      if(c.hex===this.cur.hex) cells[idx].classList.add("right");
+      else cells[idx].classList.add("dim");
+    });
+    if(!correct){ cell.classList.remove("dim"); cell.classList.add("wrong"); }
+
+    const fb=$("cramFeedback");
+    if(correct){
+      this.learned++;
+      $("cramCount").textContent=this.learned+" / "+this.total;
+      $("cramProg").style.width=(100*this.learned/this.total)+"%";
+      fb.textContent="✓ "+this.cur.n; fb.className="cramFeedback ok";
+      this.advTimer=setTimeout(()=>this.next(), 700);   // snappy auto-advance
+    }else{
+      this.lapses++;
+      const gap=3+Math.floor(Math.random()*3);          // comes back a few cards later
+      this.queue.splice(Math.min(gap,this.queue.length),0,this.cur);
+      fb.textContent="✗ you tapped "+chosen.n+" — "+this.cur.n+" is the bordered one. It'll come back.";
+      fb.className="cramFeedback bad";
+    }
+    $("cramNext").classList.remove("hidden");
+  },
+  next(){
+    if(this.advancing) return; this.advancing=true;
+    this.load();
+  },
+  finish(){
+    show("cramEnd");
+    $("cramStat1").textContent=this.total;
+    $("cramStat2").textContent=this.attempts;
+    $("cramStat3").textContent=this.lapses;
+  }
+};
+
 function full(a){return {H:"hue",S:"saturation",B:"brightness"}[a];}
-function show(id){ for(const s of ["start","play","end"]) $(s).classList.add("hidden"); $(id).classList.remove("hidden"); }
+function show(id){ for(const s of ["start","play","end","cram","cramEnd"]) $(s).classList.add("hidden"); $(id).classList.remove("hidden"); }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
 
 function drawSquare(c){
